@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Comfy Mini</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #000000; color: #d4d4d8; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; height: 100vh; height: 100dvh; }
+        .compact-card { background-color: #121212; border: 1px solid #27272a; border-radius: 8px; display: flex; flex-direction: column; position: relative; min-height: 100px; }
+        .compact-card:hover { border-color: #3f3f46; }
+        .card-body { flex: 1; overflow: hidden; min-height: 0; display: flex; flex-direction: column; gap: 0.75rem; padding-bottom: 0.5rem; }
+        .input-dark { background-color: #09090b; border: 1px solid #27272a; color: #e4e4e7; }
+        .input-dark:focus { border-color: #3b82f6; outline: none; }
+        textarea.input-dark { flex: 1; resize: none; height: 100%; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 2px; }
+        .edit-btn { @apply p-1.5 rounded bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors; }
+    </style>
+</head>
+<body class="w-full flex flex-col overflow-hidden text-xs">
+    <header class="h-10 shrink-0 flex items-center justify-between px-3 border-b border-[#27272a] bg-[#09090b] z-50">
+        <div class="flex items-center gap-2 min-w-0">
+            <div id="status-dot" class="w-2 h-2 rounded-full bg-red-500 shadow-sm shrink-0 transition-all duration-300"></div>
+            <h1 id="header-title" class="font-semibold text-zinc-300 truncate tracking-tight uppercase">MINI RUNNER</h1>
+        </div>
+        <div class="flex items-center gap-3 shrink-0">
+            <a href="/mini" class="text-zinc-500 hover:text-white transition-colors uppercase font-bold text-[10px] tracking-wider">Home</a>
+            <a href="/mini/gallery" class="text-zinc-500 hover:text-white transition-colors uppercase font-bold text-[10px] tracking-wider">Gallery</a>
+            <div class="w-px h-4 bg-zinc-800 mx-1"></div> 
+            <button id="edit-btn" class="text-zinc-500 hover:text-blue-400 p-2" title="Edit Layout"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
+            <button id="save-layout-btn" class="hidden bg-green-700 hover:bg-green-600 text-white font-bold py-1 px-2 rounded text-[10px] uppercase">SAVE UI</button>
+            <button id="generate-btn" class="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold py-1 px-3 rounded shadow transition-all flex items-center gap-1 text-[10px] tracking-wider uppercase">ROLL</button>
+            <button id="interrupt-btn" class="hidden bg-red-600 hover:bg-red-500 active:scale-95 text-white font-bold py-1 px-3 rounded shadow transition-all flex items-center gap-1 text-[10px] tracking-wider uppercase">STOP</button>
+        </div>
+    </header>
+    
+    <div id="hidden-container" class="hidden">
+        <h3 class="text-xs font-bold text-zinc-500 uppercase mt-4 mb-2">Hidden Items</h3>
+        <div id="hidden-list"></div>
+    </div>
+
+    <main class="flex-1 overflow-y-auto p-2 pb-20 relative w-full space-y-2" id="main-scroll">
+        <div class="compact-card min-h-[300px] flex items-center justify-center relative overflow-hidden group">
+            <img id="result-image" class="max-h-[50vh] w-full object-contain opacity-50 transition-opacity cursor-pointer" src="" alt="">
+            <div id="empty-state" class="absolute inset-0 flex flex-col items-center justify-center text-zinc-700 pointer-events-none"><span class="text-[10px] uppercase tracking-widest opacity-60">Ready</span></div>
+            <div id="loading-overlay" class="absolute inset-0 bg-black/80 flex flex-col items-center justify-center hidden z-10 pointer-events-none">
+                <div class="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-2"></div>
+                <span id="progress-text" class="text-[10px] font-mono text-blue-400">0%</span>
+            </div>
+        </div>
+        <div id="controls-container" class="space-y-2"></div>
+    </main>
+
+    <div id="image-modal" class="fixed inset-0 z-[100] bg-black/95 backdrop-blur hidden flex items-center justify-center p-2 opacity-0 transition-opacity duration-300">
+        <button id="close-modal" class="absolute top-4 right-4 z-[101] bg-white/10 hover:bg-white/20 text-white rounded-full p-2 transition-colors"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+        <img id="modal-image" class="max-w-full max-h-full object-contain" src="" alt="Fullscreen">
+    </div>
+
+    <!-- Hidden Input for Image Upload -->
+    <input type="file" id="image-upload-input" accept="image/*" class="hidden">
+
+    <script type="module" src="/mini/js/app.js"></script>
+</body>
+</html>

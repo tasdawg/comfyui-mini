@@ -1,0 +1,35 @@
+{
+  "1": {
+    "inputs": {
+      "model_name": "Qwen3-VL-4B-Instruct",
+      "quantization": "4-bit (VRAM-friendly)",
+      "attention_mode": "auto",
+      "preset_prompt": "\ud83e\udde9Prompt Refine & Expand",
+      "custom_prompt": "### ROLE\nYou are an expert Computer Vision Analyst and Art Director. Your goal is to analyze an input image and generate a \"Text-to-Image\" prompt. You must accurately describe the subject's geometry and pose, but render them in a \"Hyper-Realistic Graphite\" style where focal points are polished, and peripheries are chaotic.\n\n### STEP 1: CONTENT EXTRACTION (The \"What\")\nAnalyze the input image and extract the following details:\n1.  **Pose & Orientation:** Exact angle (e.g., profile, 3/4 view), head tilt, and eyeline direction.\n2.  **Anatomy & Focal Points:** Identify the sharpest details. Usually the eyes, lips, and nose. Note the texture of the skin (smooth, pores, wrinkles).\n3.  **Clothing & Props:** Identify materials (feathers, silk, armor).\n4.  **Tonal Mapping (Crucial):** Translate all colors in the input image into grayscale values. (e.g., If the input has red wings, describe them as \"dark, dense charcoal gray shading,\" not red).\n\n### STEP 2: STYLE APPLICATION (The \"How\")\nApply these specific artistic rules to the description:\n* **Medium:** \"Hyper-realistic graphite and charcoal sketch on grain-textured white paper.\"\n* **Differential Rendering (The Secret Sauce):** You must describe a contrast in technique:\n    * *The Face:* \"Rendered with photorealistic smoothness, tight shading, and high precision.\"\n    * *The Hair/Background:* \"Rendered with aggressive, chaotic, loose pencil strokes, flyaway lines, and scribbles that break the silhouette.\"\n* **Lighting:** \"High-contrast chiaroscuro. Deepest shadows are pitch black charcoal; highlights are erased white paper.\"\n\n### STEP 3: OUTPUT FORMAT\nCombine into a single paragraph using this structure:\n\"[Medium] of [Subject & Pose]. [Focal Point Details - described as photorealistic]. [Peripheral Details - described as messy/sketchy]. [Tonal Values & Lighting]. [Texture & Atmosphere].\"\n\n### INPUT\n[User Uploads Image]",
+      "max_tokens": 1024,
+      "keep_model_loaded": true,
+      "seed": 2577612199,
+      "image": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "AILab_QwenVL"
+  },
+  "2": {
+    "inputs": {
+      "image": "db161be3a6f28c255cbe24119d70adb1.jpg"
+    },
+    "class_type": "LoadImage"
+  },
+  "3": {
+    "inputs": {
+      "text_0": "A hyper-realistic charcoal and graphite pencil drawing on grain-textured white paper of a feminine angel depicted in a slightly angled three-quarter frontal pose, her head tilted downward with eyes gently closed as if in contemplation or sorrow; one shoulder bare while the other rests lightly against a winged form, arms loosely draped near the body with fingers subtly curled at the ends\u2014her long, voluminous silver-gray hair cascades dynamically around her shoulders and down her back, interlaced with stray sketchy strands that brush across her cheekbone and neck like wind-swept wisps; she possesses soft, defined facial contours including delicate arched eyebrows, pale lips parted just enough to suggest breath-holding, and a slender jawline accentuated by faintly rendered collarbones beneath translucent skin tones without any clothing beyond minimal draping along the torso which appears almost ethereal yet tactile due to fine texture variations; wings extend symmetrically from behind her frame\u2014one fully grayscale feathered wing contrasting sharply with its counterpart where vibrant crimson hues bleed through feathers toward the edge creating emotional tension between purity and passion; composed centrally within a softly blurred halo-like space suggesting divine presence rather than confinement, framed by dynamic vertical streaks mimicking falling dust or motion blur that intersect both foreground and background elements; all drawn with chaotic, looser line work crossing faces and backgrounds to convey organic chaos and inner turmoil, employing high-contrast chiaroscuro lighting wherein shadow areas dissolve into smudged ink gradients while highlight zones gleam starkly off-white against textured paper surface\u2014with bone structure implied via subtle tonal shifts instead of explicit anatomy rendering, ambient atmosphere evoking quiet melancholy tinged with spiritual gravity, unrefined margins reinforcing unfinished emotionality throughout scene.",
+      "text": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "ShowText|pysssss"
+  }
+}

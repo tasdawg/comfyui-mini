@@ -1,0 +1,34 @@
+[
+  {
+    "id": "group_1765684194544",
+    "title": "New Group",
+    "inputs": [
+      {
+        "nodeId": "1",
+        "key": "custom_prompt",
+        "height": 182
+      },
+      {
+        "nodeId": "1",
+        "key": "max_tokens"
+      },
+      {
+        "nodeId": "1",
+        "key": "keep_model_loaded"
+      },
+      {
+        "nodeId": "1",
+        "key": "seed"
+      },
+      {
+        "nodeId": "2",
+        "key": "image"
+      },
+      {
+        "nodeId": "3",
+        "key": "text_0",
+        "height": 430
+      }
+    ]
+  }
+]

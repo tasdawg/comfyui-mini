@@ -1,0 +1,389 @@
+{
+  "3": {
+    "inputs": {
+      "unet_name": "z_image_turbo-Q8_0.gguf"
+    },
+    "class_type": "UnetLoaderGGUF",
+    "_meta": {
+      "title": "Unet Loader (GGUF)"
+    }
+  },
+  "4": {
+    "inputs": {
+      "clip_name": "qwen_3_4b.safetensors",
+      "type": "lumina2",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
+  "5": {
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "6": {
+    "inputs": {
+      "shift": 5,
+      "model": [
+        "60",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingAuraFlow",
+    "_meta": {
+      "title": "ModelSamplingAuraFlow"
+    }
+  },
+  "16": {
+    "inputs": {
+      "scheduler": "beta",
+      "steps": 9,
+      "denoise": 1,
+      "model": [
+        "6",
+        0
+      ]
+    },
+    "class_type": "BasicScheduler",
+    "_meta": {
+      "title": "BasicScheduler"
+    }
+  },
+  "17": {
+    "inputs": {
+      "sampler_name": "euler_ancestral"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "KSamplerSelect"
+    }
+  },
+  "18": {
+    "inputs": {
+      "cfg": 1,
+      "model": [
+        "6",
+        0
+      ],
+      "positive": [
+        "41",
+        0
+      ],
+      "negative": [
+        "20",
+        0
+      ]
+    },
+    "class_type": "CFGGuider",
+    "_meta": {
+      "title": "CFGGuider"
+    }
+  },
+  "19": {
+    "inputs": {
+      "text": [
+        "58",
+        0
+      ],
+      "clip": [
+        "60",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Positive Prompt)"
+    }
+  },
+  "20": {
+    "inputs": {
+      "conditioning": [
+        "41",
+        0
+      ]
+    },
+    "class_type": "ConditioningZeroOut",
+    "_meta": {
+      "title": "ConditioningZeroOut"
+    }
+  },
+  "21": {
+    "inputs": {
+      "width": [
+        "40",
+        1
+      ],
+      "height": [
+        "40",
+        2
+      ],
+      "batch_size": 1
+    },
+    "class_type": "EmptySD3LatentImage",
+    "_meta": {
+      "title": "EmptySD3LatentImage"
+    }
+  },
+  "23": {
+    "inputs": {
+      "samples": [
+        "35",
+        0
+      ],
+      "vae": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "24": {
+    "inputs": {
+      "noise_seed": 1085720269105219
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "RandomNoise"
+    }
+  },
+  "25": {
+    "inputs": {
+      "detail_amount": 1.5,
+      "start": 0,
+      "end": 1,
+      "bias": 0.5,
+      "exponent": 5,
+      "start_offset": 0,
+      "end_offset": 0,
+      "fade": 0,
+      "smooth": true,
+      "cfg_scale_override": 0,
+      "sampler": [
+        "17",
+        0
+      ]
+    },
+    "class_type": "DetailDaemonSamplerNode",
+    "_meta": {
+      "title": "Detail Daemon Sampler"
+    }
+  },
+  "30": {
+    "inputs": {
+      "filename_prefix": "ZImage/Sigmas/Trials",
+      "images": [
+        "52",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "31": {
+    "inputs": {
+      "string": "A tall, elegant woman with a C-cup bust, long straight dark gradian black to pink hair, the roots are black and the tips are pink, and a sharp, defined nose. She wears a red-colored off-shoulder dress, reminiscent of a ghostly, haunted costume. The low-cut bodice accentuates her figure, while the off-shoulder design adds elegance and drama. A sheer, translucent cream-colored fabric softly covers her eyes. She poses hugging herself gently, slightly bowing her head, looking down at one shoulder, fingers long and delicate with perfectly manicured nails. The background is dark with deep red and black tones, filled with thin, ethereal fog, subtle floating embers, and flickering candlelight effects. Warm, dramatic studio lighting and rim light highlight her figure, creating intense shadows and depth, enhancing the eerie and mystical mood. Highly realistic skin texture, natural hair flow, realistic fabric folds, cinematic depth of field, ultra photorealistic, DSLR-style fashion photography, dark dreamy, gothic, moody, ethereal, perfect for Halloween editorial."
+    },
+    "class_type": "Primitive string multiline [Crystools]",
+    "_meta": {
+      "title": "🪛 Primitive string multiline"
+    }
+  },
+  "32": {
+    "inputs": {
+      "noise": [
+        "24",
+        0
+      ],
+      "guider": [
+        "18",
+        0
+      ],
+      "sampler": [
+        "25",
+        0
+      ],
+      "sigmas": [
+        "16",
+        0
+      ],
+      "latent_image": [
+        "21",
+        0
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "SamplerCustomAdvanced"
+    }
+  },
+  "35": {
+    "inputs": {
+      "seed": 218687748944435,
+      "steps": 4,
+      "cfg": 1,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "beta",
+      "denoise": 0.1,
+      "model": [
+        "6",
+        0
+      ],
+      "positive": [
+        "19",
+        0
+      ],
+      "negative": [
+        "20",
+        0
+      ],
+      "latent_image": [
+        "32",
+        1
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "40": {
+    "inputs": {
+      "resolution": "1024",
+      "ratio": "720x1280 (9:16)"
+    },
+    "class_type": "ZImageTurboResolutions",
+    "_meta": {
+      "title": "Z Image Turbo Resolutions"
+    }
+  },
+  "41": {
+    "inputs": {
+      "randomize_percent": 100,
+      "strength": 20,
+      "noise_insert": "noise on beginning steps",
+      "steps_switchover_percent": 20,
+      "seed": 517087626795040,
+      "mask_starts_at": "beginning",
+      "mask_percent": 0,
+      "log_to_console": false,
+      "conditioning": [
+        "19",
+        0
+      ]
+    },
+    "class_type": "SeedVarianceEnhancer",
+    "_meta": {
+      "title": "SeedVarianceEnhancer"
+    }
+  },
+  "52": {
+    "inputs": {
+      "anything": [
+        "23",
+        0
+      ]
+    },
+    "class_type": "easy cleanGpuUsed",
+    "_meta": {
+      "title": "Clean VRAM Used"
+    }
+  },
+  "53": {
+    "inputs": {
+      "styles": "fooocus_styles",
+      "select_styles": {
+        "__value__": []
+      }
+    },
+    "class_type": "easy stylesSelector",
+    "_meta": {
+      "title": "Styles Selector"
+    }
+  },
+  "54": {
+    "inputs": {
+      "text": "",
+      "anything": [
+        "53",
+        0
+      ]
+    },
+    "class_type": "easy showAnything",
+    "_meta": {
+      "title": "Show Any"
+    }
+  },
+  "56": {
+    "inputs": {
+      "STRING": [
+        "54",
+        0
+      ]
+    },
+    "class_type": "Griptape Create: Text",
+    "_meta": {
+      "title": "bypass text from fooocus"
+    }
+  },
+  "57": {
+    "inputs": {
+      "merge_string": "\\n\\n",
+      "input_1": [
+        "56",
+        0
+      ],
+      "input_2": [
+        "31",
+        0
+      ]
+    },
+    "class_type": "Griptape Combine: Merge Texts",
+    "_meta": {
+      "title": "Griptape Combine: Merge Texts"
+    }
+  },
+  "58": {
+    "inputs": {
+      "text_0": "A tall, elegant woman with a C-cup bust, long straight dark gradian black to pink hair, the roots are black and the tips are pink, and a sharp, defined nose. She wears a red-colored off-shoulder dress, reminiscent of a ghostly, haunted costume. The low-cut bodice accentuates her figure, while the off-shoulder design adds elegance and drama. A sheer, translucent cream-colored fabric softly covers her eyes. She poses hugging herself gently, slightly bowing her head, looking down at one shoulder, fingers long and delicate with perfectly manicured nails. The background is dark with deep red and black tones, filled with thin, ethereal fog, subtle floating embers, and flickering candlelight effects. Warm, dramatic studio lighting and rim light highlight her figure, creating intense shadows and depth, enhancing the eerie and mystical mood. Highly realistic skin texture, natural hair flow, realistic fabric folds, cinematic depth of field, ultra photorealistic, DSLR-style fashion photography, dark dreamy, gothic, moody, ethereal, perfect for Halloween editorial.",
+      "text": [
+        "57",
+        0
+      ]
+    },
+    "class_type": "ShowText|pysssss",
+    "_meta": {
+      "title": "End output prompt combine"
+    }
+  },
+  "60": {
+    "inputs": {
+      "lora_name": "[ZImage]\\zImage-Golden Noir v0.1.safetensors",
+      "strength_model": 0.8,
+      "strength_clip": 0.8,
+      "model": [
+        "3",
+        0
+      ],
+      "clip": [
+        "4",
+        0
+      ]
+    },
+    "class_type": "Lora Loader",
+    "_meta": {
+      "title": "Lora Loader"
+    }
+  }
+}

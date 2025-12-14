@@ -1,0 +1,70 @@
+[
+  {
+    "id": "group_1765684980404",
+    "title": "t2zImage With fooocus Styling",
+    "inputs": [
+      {
+        "nodeId": "31",
+        "key": "string",
+        "height": 277
+      },
+      {
+        "nodeId": "40",
+        "key": "resolution"
+      },
+      {
+        "nodeId": "40",
+        "key": "ratio"
+      },
+      {
+        "nodeId": "53",
+        "key": "select_styles"
+      },
+      {
+        "nodeId": "58",
+        "key": "text_0",
+        "height": 293
+      },
+      {
+        "nodeId": "60",
+        "key": "lora_name"
+      },
+      {
+        "nodeId": "60",
+        "key": "strength_model"
+      },
+      {
+        "nodeId": "60",
+        "key": "strength_clip"
+      },
+      {
+        "nodeId": "41",
+        "key": "randomize_percent"
+      },
+      {
+        "nodeId": "16",
+        "key": "scheduler"
+      },
+      {
+        "nodeId": "17",
+        "key": "sampler_name"
+      },
+      {
+        "nodeId": "25",
+        "key": "detail_amount"
+      },
+      {
+        "nodeId": "25",
+        "key": "bias"
+      },
+      {
+        "nodeId": "25",
+        "key": "exponent"
+      },
+      {
+        "nodeId": "30",
+        "key": "filename_prefix"
+      }
+    ]
+  }
+]
