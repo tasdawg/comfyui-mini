@@ -12,7 +12,7 @@ WEBROOT = os.path.join(current_dir, "web")
 WORKFLOWS_DIR = os.path.join(WEBROOT, "workflows")
 META_DIR = os.path.join(WORKFLOWS_DIR, "meta") 
 BACKUPS_DIR = os.path.join(WEBROOT, "backups")
-AUTOMATIONS_DIR = os.path.join(WEBROOT, "automations") # New Directory
+AUTOMATIONS_DIR = os.path.join(WEBROOT, "automations") 
 OUTPUT_DIR = folder_paths.get_output_directory()
 
 for d in [WORKFLOWS_DIR, META_DIR, BACKUPS_DIR, AUTOMATIONS_DIR]:
@@ -50,17 +50,14 @@ def split_workflow_data(full_data):
     return logic_data, meta_data
 
 def merge_workflow_data(logic_data, meta_data):
-    # SAFETY: If logic is a list or raw type, return as is (can't merge)
     if not isinstance(logic_data, dict):
         return logic_data
         
     merged = {}
     for node_id, node in logic_data.items():
         merged[node_id] = node
-        # Only inject meta if the target node is a dictionary
         if node_id in meta_data and isinstance(node, dict):
             if "_meta" in meta_data[node_id]:
-                # Avoid modifying the original logic_data object
                 merged[node_id] = node.copy() 
                 merged[node_id]["_meta"] = meta_data[node_id]["_meta"]
 
@@ -104,7 +101,6 @@ async def serve_workflow(request):
             
         return web.json_response(merge_workflow_data(logic, meta))
     except Exception as e:
-        print(f"[ComfyMini] ERROR in serve_workflow: {e}")
         return web.json_response({})
 
 @server.PromptServer.instance.routes.get("/mini/layout.json")
@@ -136,7 +132,6 @@ async def get_workflow(request):
         if not os.path.exists(file_path):
              return web.json_response({"error": "File not found"}, status=404)
              
-        # FIXED: Use utf-8 encoding explicitly
         with open(file_path, 'r', encoding='utf-8') as f: 
             logic = json.load(f)
         
@@ -146,12 +141,10 @@ async def get_workflow(request):
         if os.path.exists(meta_path):
             try:
                 with open(meta_path, 'r', encoding='utf-8') as f: meta = json.load(f)
-            except Exception as e:
-                print(f"[ComfyMini] Warning: corrupt meta file {meta_filename}: {e}")
+            except Exception as e: pass
         
         return web.json_response(merge_workflow_data(logic, meta))
     except Exception as e: 
-        print(f"[ComfyMini] ERROR in get_workflow ({filename}): {e}")
         return web.json_response({"error": f"Server Error: {str(e)}"}, status=500)
 
 @server.PromptServer.instance.routes.post("/mini/select_workflow")
@@ -165,14 +158,11 @@ async def select_workflow(request):
         if not os.path.exists(src_path):
             return web.json_response({"error": f"File {filename} not found"}, status=404)
 
-        # 1. LOAD Source
         with open(src_path, 'r', encoding='utf-8') as f:
             full_data = json.load(f)
 
-        # 2. SPLIT Logic/Meta
         logic, meta = split_workflow_data(full_data)
         
-        # 3. MERGE Existing Meta
         meta_filename = filename.replace('.json', '.meta.json')
         src_meta = os.path.join(META_DIR, meta_filename)
         if os.path.exists(src_meta):
@@ -184,30 +174,23 @@ async def select_workflow(request):
 
         meta["_mini_origin"] = filename
 
-        # 4. AGGRESSIVE WRITE (Delete first to prevent stale data)
         wf_target = os.path.join(WEBROOT, "workflow.json")
         meta_target = os.path.join(WEBROOT, "workflow.meta.json")
 
-        # Delete existing files if they exist
         if os.path.exists(wf_target): os.remove(wf_target)
         if os.path.exists(meta_target): os.remove(meta_target)
-        
-        # Small sleep to ensure Windows releases the file handle
         time.sleep(0.1)
 
-        # Write new data
         with open(wf_target, 'w', encoding='utf-8') as f:
             json.dump(logic, f, indent=2)
-            os.fsync(f.fileno()) # Force write to disk immediately
+            os.fsync(f.fileno())
             
         with open(meta_target, 'w', encoding='utf-8') as f:
             json.dump(meta, f, indent=2)
             os.fsync(f.fileno())
 
-        print(f"[ComfyMini] ACTIVATED {filename} ({len(logic)} nodes)")
         return web.json_response({"status": "success"})
     except Exception as e: 
-        print(f"[ComfyMini] Error selecting workflow: {e}")
         return web.json_response({"error": str(e)}, status=500)
 
 @server.PromptServer.instance.routes.post("/mini/upload_workflow")
@@ -275,7 +258,6 @@ async def save_active_workflow(request):
             json.dump(meta, f, indent=2)
 
         if suffix == "" and origin_file:
-            print(f"Syncing changes to library: {origin_file}")
             with open(os.path.join(WORKFLOWS_DIR, origin_file), 'w', encoding='utf-8') as f:
                 json.dump(logic, f, indent=2)
             
@@ -327,10 +309,7 @@ async def save_layout(request):
 @server.PromptServer.instance.routes.get("/mini/load_groups")
 async def load_groups(request):
     try:
-        # 1. Check if frontend requested a specific file (Priority)
         target_filename = request.query.get("filename")
-
-        # 2. If no specific file, check active session metadata (Fallback)
         if not target_filename:
             meta_path = os.path.join(WEBROOT, "workflow.meta.json")
             if os.path.exists(meta_path):
@@ -339,11 +318,8 @@ async def load_groups(request):
                     if "_mini_origin" in meta:
                         target_filename = meta["_mini_origin"]
         
-        # 3. If we still don't have a filename, give up
-        if not target_filename:
-             return web.json_response([])
+        if not target_filename: return web.json_response([])
 
-        # Clean filename extension
         if target_filename.endswith('.json'):
             target_filename = target_filename[:-5]
         
@@ -366,11 +342,9 @@ async def save_groups(request):
         filename = data.get("filename")
         groups = data.get("groups")
         
-        if not filename: 
-            return web.json_response({"error": "No filename provided"}, status=400)
+        if not filename: return web.json_response({"error": "No filename provided"}, status=400)
 
-        if filename.endswith('.json'):
-            filename = filename[:-5]
+        if filename.endswith('.json'): filename = filename[:-5]
         target_filename = filename + ".groups.json"
         
         save_path = os.path.join(META_DIR, target_filename)
@@ -382,7 +356,7 @@ async def save_groups(request):
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
 
-# --- NEW AUTOMATION ENDPOINTS ---
+# --- AUTOMATION & BRIDGE ---
 @server.PromptServer.instance.routes.post("/mini/save_automation")
 async def save_automation(request):
     try:
@@ -392,14 +366,10 @@ async def save_automation(request):
         
         if not name: return web.json_response({"error": "No name provided"}, status=400)
         
-        # Sanitize name
         safe_name = "".join([c for c in name if c.isalnum() or c in (' ', '-', '_')]).strip()
         filename = f"{safe_name}.json"
         
-        # Only save metadata needed to reconstruct queue (id, filename)
-        # We don't save the full workflow/groups content to keep it lightweight
-        # They will be refetched on load
-        save_data = [{ "filename": step["filename"] } for step in queue]
+        save_data = [{ "filename": step["filename"], "connectedOutput": step.get("connectedOutput"), "connectedInput": step.get("connectedInput") } for step in queue]
         
         with open(os.path.join(AUTOMATIONS_DIR, filename), 'w', encoding='utf-8') as f:
             json.dump(save_data, f, indent=2)
@@ -429,6 +399,42 @@ async def load_automation(request):
         with open(path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         return web.json_response(data)
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
+@server.PromptServer.instance.routes.post("/mini/bridge_image")
+async def bridge_image(request):
+    try:
+        data = await request.json()
+        filename = data.get("filename")
+        subfolder = data.get("subfolder", "")
+        folder_type = data.get("type", "output")
+        
+        if not filename: return web.json_response({"error": "No filename"}, status=400)
+
+        # Resolve Source
+        if folder_type == "output":
+            src_dir = folder_paths.get_output_directory()
+        else:
+            src_dir = folder_paths.get_temp_directory()
+            
+        src_path = os.path.join(src_dir, subfolder, filename)
+        
+        # Resolve Dest (Input)
+        input_dir = folder_paths.get_input_directory()
+        dest_path = os.path.join(input_dir, filename) 
+        
+        # Handle collision with timestamp
+        if os.path.exists(dest_path):
+            base, ext = os.path.splitext(filename)
+            dest_path = os.path.join(input_dir, f"{base}_{int(time.time())}{ext}")
+            
+        if os.path.exists(src_path):
+            shutil.copy(src_path, dest_path)
+            print(f"[ComfyMini] Bridged image {filename} to Input folder.")
+            return web.json_response({"filename": os.path.basename(dest_path)})
+            
+        return web.json_response({"error": "Source file not found"}, status=404)
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
 
