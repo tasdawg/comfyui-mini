@@ -1,6 +1,5 @@
 import { createInputDOM, safeFetch, getObjectInfo, handleImageUpload, openModal, setupModalListeners, createStyleSelector } from './app.js';
 
-// --- ASSIGN GLOBAL FOR INLINE ONCLICK ---
 window.openModal = openModal;
 
 const els = {
@@ -25,13 +24,12 @@ let isRunning = false;
 let socket = null;
 let clientId = ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
 let currentStepIndex = -1;
-let latestRenderId = 0; // Prevent race conditions
+let latestRenderId = 0; 
 let fooocusStyles = []; 
 
 async function init() {
     connectWS();
     setupModalListeners(); 
-    
     fooocusStyles = await safeFetch('/mini/fooocus_styles.json', []);
 
     const res = await safeFetch('/mini/list_workflows', { workflows: [] });
@@ -94,10 +92,10 @@ async function addToQueue(filename) {
         groups: groupData,
         status: 'pending',
         outputImage: null,
+        outputImageMeta: null, // Stores { filename, subfolder, type }
         isFinished: false,
-        // Connection Logic
-        connectedOutput: null, // { nodeId, key }
-        connectedInput: null   // { nodeId, key }
+        connectedOutput: null, 
+        connectedInput: null   
     };
 
     automationQueue.push(stepItem);
@@ -109,14 +107,11 @@ function removeStep(id) {
     renderQueue();
 }
 
-// --- SAVE / LOAD ---
-
 async function saveQueue() {
     if (automationQueue.length === 0) return alert("Queue is empty.");
     const name = prompt("Name this Automation Queue:");
     if (!name) return;
 
-    // Save simplified data including connections
     const queueData = automationQueue.map(step => ({ 
         filename: step.filename,
         connectedOutput: step.connectedOutput,
@@ -156,11 +151,7 @@ async function loadSelectedAutomation() {
         els.container.innerHTML = '';
         els.empty.classList.remove('hidden');
 
-        // Sequentially add items and restore connections
         for (const item of queueData) {
-            // We use a modified addToQueue logic here effectively
-            // But since addToQueue is async and pushes to global queue, 
-            // we need to wait and then update the last item
             await addToQueue(item.filename);
             const lastIdx = automationQueue.length - 1;
             if (lastIdx >= 0) {
@@ -168,7 +159,7 @@ async function loadSelectedAutomation() {
                 automationQueue[lastIdx].connectedInput = item.connectedInput;
             }
         }
-        renderQueue(); // Final render with connections
+        renderQueue(); 
         els.savedSelector.value = ""; 
     } catch (e) {
         alert("Error loading automation: " + e.message);
@@ -199,7 +190,6 @@ async function renderQueue() {
         const borderClass = step.status === 'running' ? 'border-blue-500 shadow-blue-900/20 shadow-lg' : 'border-[#27272a]';
         card.className = `compact-card flex flex-col overflow-hidden transition-all duration-300 ${borderClass}`;
         
-        // Header
         const header = document.createElement('div');
         header.className = "bg-[#18181b] px-3 py-2 border-b border-[#27272a] flex justify-between items-center";
         
@@ -232,7 +222,6 @@ async function renderQueue() {
         const body = document.createElement('div');
         body.className = "p-3 space-y-4";
 
-        // IMAGE PREVIEW AREA
         const resultContainer = document.createElement('div');
         resultContainer.id = `result-container-${i}`;
         if (step.outputImage) {
@@ -240,10 +229,18 @@ async function renderQueue() {
         }
         body.appendChild(resultContainer);
 
-        // Build list of all inputs for this step (for connection dropdowns)
         let allInputs = [];
+        let hasSaveImage = false;
 
-        // GROUPS RENDER
+        // Check for Save Image nodes to enable "GENERATED IMAGE" output option
+        for (const nodeId in step.workflow) {
+            const n = step.workflow[nodeId];
+            if (n.class_type && (n.class_type.includes("SaveImage") || n.class_type === "Save Image")) {
+                hasSaveImage = true;
+                break;
+            }
+        }
+
         for (const group of step.groups) {
             if (myRenderId !== latestRenderId) return;
 
@@ -257,7 +254,6 @@ async function renderQueue() {
             groupTitle.innerText = group.title;
             groupTitleBar.appendChild(groupTitle);
 
-            // Upload Logic
             const imageInputRef = group.inputs.find(ref => {
                 const n = step.workflow[ref.nodeId];
                 return n && (n.class_type === "LoadImage" || n.class_type === "LoadImageMask");
@@ -282,43 +278,39 @@ async function renderQueue() {
             }
             groupDiv.appendChild(groupTitleBar);
 
-            // Inputs
             for (const inputRef of group.inputs) {
                 const node = step.workflow[inputRef.nodeId];
                 if (!node) continue;
                 
-                // Collect for connection list
                 allInputs.push({ 
                     nodeId: inputRef.nodeId, 
                     key: inputRef.key, 
                     label: inputRef.key.replace(/_/g, ' ') 
                 });
 
-                // Style Selector Check
                 if (inputRef.key === 'select_styles') {
                     const wrap = createStyleSelector(node, inputRef.key, null, fooocusStyles);
                     groupDiv.appendChild(wrap);
                     continue;
                 }
 
-                // Standard Inputs
                 let def = await getObjectInfo(node.class_type);
                 const inputWrapper = document.createElement('div');
                 inputWrapper.className = "space-y-1";
                 
-                // Label with Arrows
                 let labelHtml = `<span class="block text-[9px] font-medium text-zinc-500 uppercase">`;
                 
-                // Add Output Arrow (Left Orange)
-                if (step.connectedOutput && String(step.connectedOutput.nodeId) === String(inputRef.nodeId) && step.connectedOutput.key === inputRef.key) {
-                    labelHtml += `<span class="text-orange-500 font-bold mr-1">←</span>`;
+                // Show Input Arrow if this input is being fed by previous step
+                if (step.connectedInput && String(step.connectedInput.nodeId) === String(inputRef.nodeId) && step.connectedInput.key === inputRef.key) {
+                    labelHtml += `<span class="text-orange-500 font-bold mr-1">→</span>`;
                 }
                 
                 labelHtml += inputRef.key.replace(/_/g, ' ');
 
-                // Add Input Arrow (Right Orange)
-                if (step.connectedInput && String(step.connectedInput.nodeId) === String(inputRef.nodeId) && step.connectedInput.key === inputRef.key) {
-                    labelHtml += `<span class="text-orange-500 font-bold ml-1">→</span>`;
+                // Show Output Arrow if this input is determining the output (standard)
+                // Note: Image Output doesn't map to a specific input key, so we don't arrow it here.
+                if (step.connectedOutput && String(step.connectedOutput.nodeId) === String(inputRef.nodeId) && step.connectedOutput.key === inputRef.key) {
+                    labelHtml += `<span class="text-orange-500 font-bold ml-1">←</span>`;
                 }
                 
                 labelHtml += `</span>`;
@@ -337,25 +329,31 @@ async function renderQueue() {
             body.appendChild(groupDiv);
         }
         
-        // --- CONNECTION FOOTER ---
         const footer = document.createElement('div');
         footer.className = "mt-4 pt-2 border-t border-zinc-800 flex gap-2";
         
-        // Output Dropdown (Pass THIS step's value OUT)
+        // Output Dropdown
         const outSelect = document.createElement('select');
         outSelect.className = "flex-1 input-dark rounded p-1 text-[9px] text-zinc-400 uppercase";
         outSelect.innerHTML = `<option value="">Pass Output To Next...</option>`;
+        
+        // Add Special Image Output Option
+        if (hasSaveImage) {
+            const isImgSel = step.connectedOutput && step.connectedOutput.special === 'IMAGE';
+            outSelect.innerHTML += `<option value='{"special":"IMAGE"}' ${isImgSel ? 'selected' : ''}>★ GENERATED IMAGE</option>`;
+        }
+
         allInputs.forEach(inp => {
             const val = JSON.stringify({ nodeId: inp.nodeId, key: inp.key });
-            const isSel = step.connectedOutput && String(step.connectedOutput.nodeId) === String(inp.nodeId) && step.connectedOutput.key === inp.key;
+            const isSel = step.connectedOutput && !step.connectedOutput.special && String(step.connectedOutput.nodeId) === String(inp.nodeId) && step.connectedOutput.key === inp.key;
             outSelect.innerHTML += `<option value='${val}' ${isSel ? 'selected' : ''}>${inp.label}</option>`;
         });
         outSelect.onchange = (e) => {
             step.connectedOutput = e.target.value ? JSON.parse(e.target.value) : null;
-            renderQueue(); // Re-render to show arrows
+            renderQueue();
         };
 
-        // Input Dropdown (Receive FROM PREV step)
+        // Input Dropdown
         const inSelect = document.createElement('select');
         inSelect.className = "flex-1 input-dark rounded p-1 text-[9px] text-zinc-400 uppercase";
         inSelect.innerHTML = `<option value="">Receive Input From Prev...</option>`;
@@ -366,7 +364,7 @@ async function renderQueue() {
         });
         inSelect.onchange = (e) => {
             step.connectedInput = e.target.value ? JSON.parse(e.target.value) : null;
-            renderQueue(); // Re-render to show arrows
+            renderQueue();
         };
 
         footer.appendChild(outSelect);
@@ -433,17 +431,46 @@ async function executeStep(index) {
     // --- CONNECTION LOGIC ---
     if (index > 0 && step.connectedInput) {
         const prevStep = automationQueue[index - 1];
+        
         if (prevStep.connectedOutput) {
-            // Retrieve value from Previous Step's Output
-            const prevNode = prevStep.workflow[prevStep.connectedOutput.nodeId];
-            const valToPass = prevNode.inputs[prevStep.connectedOutput.key];
             
-            // Inject into Current Step's Input
-            if (valToPass !== undefined) {
-                const currNode = step.workflow[step.connectedInput.nodeId];
-                if (currNode) {
-                    currNode.inputs[step.connectedInput.key] = valToPass;
-                    console.log(`[Automation] Passed value '${valToPass}' from Step ${index} to Step ${index+1}`);
+            // CASE 1: Passing Generated Image
+            if (prevStep.connectedOutput.special === 'IMAGE') {
+                if (prevStep.outputImageMeta) {
+                    console.log(`[Automation] Bridging Image from Step ${index-1} to Step ${index}...`);
+                    try {
+                        const bridgeRes = await fetch('/mini/bridge_image', { 
+                            method: 'POST', 
+                            body: JSON.stringify(prevStep.outputImageMeta) 
+                        });
+                        
+                        if (bridgeRes.ok) {
+                            const bridgeData = await bridgeRes.json();
+                            const currNode = step.workflow[step.connectedInput.nodeId];
+                            if (currNode) {
+                                currNode.inputs[step.connectedInput.key] = bridgeData.filename;
+                                console.log(`[Automation] Image bridged successfully: ${bridgeData.filename}`);
+                            }
+                        } else {
+                            console.error("Bridge Image Failed");
+                        }
+                    } catch(e) { console.error("Bridge Error", e); }
+                } else {
+                    console.warn("Previous step selected 'IMAGE' output but no image meta found.");
+                }
+            }
+            // CASE 2: Passing Standard Input Value (Text, Seed, etc)
+            else {
+                const prevNode = prevStep.workflow[prevStep.connectedOutput.nodeId];
+                if (prevNode) {
+                    const valToPass = prevNode.inputs[prevStep.connectedOutput.key];
+                    if (valToPass !== undefined) {
+                        const currNode = step.workflow[step.connectedInput.nodeId];
+                        if (currNode) {
+                            currNode.inputs[step.connectedInput.key] = valToPass;
+                            console.log(`[Automation] Passed value '${valToPass}' from Step ${index-1} to Step ${index}`);
+                        }
+                    }
                 }
             }
         }
@@ -451,6 +478,7 @@ async function executeStep(index) {
 
     step.status = 'running';
     step.outputImage = null; 
+    step.outputImageMeta = null;
     step.isFinished = false;
 
     renderQueue(); 
@@ -499,6 +527,7 @@ async function executeStep(index) {
                         const img = msg.data.output.images[0];
                         const url = `/view?filename=${img.filename}&subfolder=${img.subfolder}&type=${img.type}&t=${Date.now()}`;
                         step.outputImage = url;
+                        step.outputImageMeta = img; // Store meta for bridging
                         step.isFinished = true;
                         const cont = document.getElementById(`result-container-${index}`);
                         if(cont) renderResultImage(cont, url, true);
