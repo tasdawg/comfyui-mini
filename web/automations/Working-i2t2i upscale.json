@@ -1,0 +1,34 @@
+[
+  {
+    "filename": "qwenVL.json",
+    "connectedOutput": {
+      "nodeId": "3",
+      "key": "text_0"
+    },
+    "connectedInput": null
+  },
+  {
+    "filename": "clean RAM.json",
+    "connectedOutput": null,
+    "connectedInput": null
+  },
+  {
+    "filename": "Detailer-ZImage-fooocus-lora--v2.6.json",
+    "connectedOutput": {
+      "nodeId": "30",
+      "key": "filename_prefix"
+    },
+    "connectedInput": {
+      "nodeId": "31",
+      "key": "string"
+    }
+  },
+  {
+    "filename": "SeedVR2_simple_image_upscale_v2.json",
+    "connectedOutput": null,
+    "connectedInput": {
+      "nodeId": "16",
+      "key": "image"
+    }
+  }
+]
