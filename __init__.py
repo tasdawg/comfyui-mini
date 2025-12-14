@@ -233,6 +233,10 @@ async def list_files(request):
 async def save_active_workflow(request):
     try:
         full_data = await request.json()
+        
+        # Check payload first for origin, fallback to disk
+        origin_file = full_data.get("_mini_origin")
+        
         logic, meta = split_workflow_data(full_data)
         
         suffix = request.query.get("suffix", "")
@@ -240,16 +244,19 @@ async def save_active_workflow(request):
         target_meta_filename = f"workflow{suffix}.meta.json"
 
         current_meta_path = os.path.join(WEBROOT, "workflow.meta.json")
-        origin_file = None
         
-        if os.path.exists(current_meta_path):
+        # If payload didn't have origin, try loading from existing meta
+        if not origin_file and os.path.exists(current_meta_path):
             try:
                 with open(current_meta_path, 'r', encoding='utf-8') as f:
                     old_meta = json.load(f)
                     if "_mini_origin" in old_meta: 
-                        meta["_mini_origin"] = old_meta["_mini_origin"]
                         origin_file = old_meta["_mini_origin"]
             except: pass
+            
+        # Ensure meta has the origin tag
+        if origin_file:
+            meta["_mini_origin"] = origin_file
 
         with open(os.path.join(WEBROOT, target_filename), 'w', encoding='utf-8') as f: 
             json.dump(logic, f, indent=2)
@@ -257,7 +264,9 @@ async def save_active_workflow(request):
         with open(os.path.join(WEBROOT, target_meta_filename), 'w', encoding='utf-8') as f: 
             json.dump(meta, f, indent=2)
 
+        # SYNC TO LIBRARY
         if suffix == "" and origin_file:
+            print(f"[ComfyMini] Syncing save to library: {origin_file}")
             with open(os.path.join(WORKFLOWS_DIR, origin_file), 'w', encoding='utf-8') as f:
                 json.dump(logic, f, indent=2)
             
