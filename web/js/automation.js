@@ -92,7 +92,7 @@ async function addToQueue(filename) {
         groups: groupData,
         status: 'pending',
         outputImage: null,
-        outputImageMeta: null, // Stores { filename, subfolder, type }
+        outputImageMeta: null, 
         isFinished: false,
         connectedOutput: null, 
         connectedInput: null   
@@ -232,7 +232,6 @@ async function renderQueue() {
         let allInputs = [];
         let hasSaveImage = false;
 
-        // Check for Save Image nodes to enable "GENERATED IMAGE" output option
         for (const nodeId in step.workflow) {
             const n = step.workflow[nodeId];
             if (n.class_type && (n.class_type.includes("SaveImage") || n.class_type === "Save Image")) {
@@ -300,15 +299,12 @@ async function renderQueue() {
                 
                 let labelHtml = `<span class="block text-[9px] font-medium text-zinc-500 uppercase">`;
                 
-                // Show Input Arrow if this input is being fed by previous step
                 if (step.connectedInput && String(step.connectedInput.nodeId) === String(inputRef.nodeId) && step.connectedInput.key === inputRef.key) {
                     labelHtml += `<span class="text-orange-500 font-bold mr-1">→</span>`;
                 }
                 
                 labelHtml += inputRef.key.replace(/_/g, ' ');
 
-                // Show Output Arrow if this input is determining the output (standard)
-                // Note: Image Output doesn't map to a specific input key, so we don't arrow it here.
                 if (step.connectedOutput && String(step.connectedOutput.nodeId) === String(inputRef.nodeId) && step.connectedOutput.key === inputRef.key) {
                     labelHtml += `<span class="text-orange-500 font-bold ml-1">←</span>`;
                 }
@@ -332,12 +328,10 @@ async function renderQueue() {
         const footer = document.createElement('div');
         footer.className = "mt-4 pt-2 border-t border-zinc-800 flex gap-2";
         
-        // Output Dropdown
         const outSelect = document.createElement('select');
         outSelect.className = "flex-1 input-dark rounded p-1 text-[9px] text-zinc-400 uppercase";
         outSelect.innerHTML = `<option value="">Pass Output To Next...</option>`;
         
-        // Add Special Image Output Option
         if (hasSaveImage) {
             const isImgSel = step.connectedOutput && step.connectedOutput.special === 'IMAGE';
             outSelect.innerHTML += `<option value='{"special":"IMAGE"}' ${isImgSel ? 'selected' : ''}>★ GENERATED IMAGE</option>`;
@@ -353,7 +347,6 @@ async function renderQueue() {
             renderQueue();
         };
 
-        // Input Dropdown
         const inSelect = document.createElement('select');
         inSelect.className = "flex-1 input-dark rounded p-1 text-[9px] text-zinc-400 uppercase";
         inSelect.innerHTML = `<option value="">Receive Input From Prev...</option>`;
@@ -434,8 +427,21 @@ async function executeStep(index) {
         
         if (prevStep.connectedOutput) {
             
-            // CASE 1: Passing Generated Image
+            // CHECK: Is this a "Magic Image Bridge" case?
+            // Case A: Explicit "GENERATED IMAGE"
+            // Case B: User selected 'filename_prefix' on a Save Node
+            let shouldBridge = false;
+            
             if (prevStep.connectedOutput.special === 'IMAGE') {
+                shouldBridge = true;
+            } else if (prevStep.connectedOutput.key === 'filename_prefix') {
+                const prevNode = prevStep.workflow[prevStep.connectedOutput.nodeId];
+                if (prevNode && (prevNode.class_type.includes("Save") || prevNode.class_type === 'Save Image')) {
+                    shouldBridge = true;
+                }
+            }
+
+            if (shouldBridge) {
                 if (prevStep.outputImageMeta) {
                     console.log(`[Automation] Bridging Image from Step ${index-1} to Step ${index}...`);
                     try {
@@ -456,10 +462,10 @@ async function executeStep(index) {
                         }
                     } catch(e) { console.error("Bridge Error", e); }
                 } else {
-                    console.warn("Previous step selected 'IMAGE' output but no image meta found.");
+                    console.warn("Previous step selected for IMAGE bridge but no image meta found.");
                 }
             }
-            // CASE 2: Passing Standard Input Value (Text, Seed, etc)
+            // STANDARD VALUE PASSING
             else {
                 const prevNode = prevStep.workflow[prevStep.connectedOutput.nodeId];
                 if (prevNode) {
