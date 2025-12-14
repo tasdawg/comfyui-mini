@@ -166,6 +166,19 @@ async function loadSelectedAutomation() {
     }
 }
 
+// --- SAVING UPDATES TO LIBRARY ---
+async function saveStepToLibrary(filename, workflow) {
+    try {
+        const payload = JSON.parse(JSON.stringify(workflow));
+        payload._save_name = filename; // Tells backend where to save
+        await fetch('/mini/save_library', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+        console.log(`[Automation] Saved updated values to ${filename}`);
+    } catch(e) { console.error("Auto-save failed:", e); }
+}
+
 // --- RENDERING ---
 
 async function renderQueue() {
@@ -393,6 +406,12 @@ function renderResultImage(container, src, isFinished) {
 
 async function runAll() {
     if (automationQueue.length === 0 || isRunning) return;
+    
+    // SAVE ALL CHANGES BEFORE RUNNING
+    for (const step of automationQueue) {
+        await saveStepToLibrary(step.filename, step.workflow);
+    }
+
     isRunning = true;
     updateUIState();
 
@@ -409,6 +428,11 @@ async function runAll() {
 
 async function runSingleStep(index) {
     if (isRunning) return;
+    
+    // SAVE CHANGES BEFORE RUNNING
+    const step = automationQueue[index];
+    await saveStepToLibrary(step.filename, step.workflow);
+
     isRunning = true;
     currentStepIndex = index;
     updateUIState();
@@ -427,9 +451,6 @@ async function executeStep(index) {
         
         if (prevStep.connectedOutput) {
             
-            // CHECK: Is this a "Magic Image Bridge" case?
-            // Case A: Explicit "GENERATED IMAGE"
-            // Case B: User selected 'filename_prefix' on a Save Node
             let shouldBridge = false;
             
             if (prevStep.connectedOutput.special === 'IMAGE') {
@@ -552,6 +573,9 @@ async function executeStep(index) {
 
         step.status = 'done';
         await updateStepFromHistory(index, promptId);
+        
+        // SAVE FINAL STATE (Seeds, Bridged inputs)
+        await saveStepToLibrary(step.filename, step.workflow);
 
     } catch (e) {
         console.error(e);
