@@ -1,0 +1,21 @@
+{
+  "18": {
+    "inputs": {
+      "anything": [
+        "22",
+        0
+      ]
+    },
+    "class_type": "easy cleanGpuUsed",
+    "_meta": {
+      "title": "Clean VRAM Used"
+    }
+  },
+  "22": {
+    "inputs": {},
+    "class_type": "easy showAnything",
+    "_meta": {
+      "title": "Show Any"
+    }
+  }
+}
