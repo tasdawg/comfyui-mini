@@ -1113,6 +1113,12 @@ async function run() {
             node.inputs.seed = Math.floor(Math.random() * 10000000000);
         }
     }
+    // ADDED: Force save active workflow to disk before running
+    await fetch('/mini/save_workflow', { 
+        method: 'POST', 
+        body: JSON.stringify(loadedWorkflow) 
+    });
+
     await saveGroups(); 
 
     // 2. PREPARE PAYLOAD
