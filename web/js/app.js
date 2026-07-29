@@ -58,24 +58,32 @@ function logTerminal(msg, level) {
 // --- IMAGE THUMBNAIL RENDERER ---
 function renderImageThumbnail(nodeId, filename) {
     if (!filename || !els.result) return null;
-    
+
     const thumbContainer = document.createElement('div');
-    thumbContainer.className = "absolute top-3 right-3 z-20";
-    
+    thumbContainer.className = "absolute top-3 right-3 z-20 image-thumb-container";
+
     const img = document.createElement('img');
     img.src = `/view?filename=${encodeURIComponent(filename)}&type=input&t=${Date.now()}`;
     img.alt = filename;
+    img.loading = 'lazy';
+    img.decoding = 'async';
     img.style.cssText = `width:48px;height:48px;object-fit:cover;border-radius:6px;border:1.5px solid #3f3f46;cursor:pointer;background:#09090b;display:block;`;
-    
+
     img.onerror = () => {
         thumbContainer.style.display = 'none';
     };
-    
+
+    img.onload = () => {
+        if (thumbContainer.classList.contains('image-thumb-container')) {
+            console.log(`[Thumb] Loaded: ${filename}`);
+        }
+    };
+
     img.onclick = (e) => {
         e.stopPropagation();
         openModal(`/view?filename=${encodeURIComponent(filename)}&type=input&t=${Date.now()}`);
     };
-    
+
     thumbContainer.appendChild(img);
     return thumbContainer;
 }
@@ -83,8 +91,9 @@ function renderImageThumbnail(nodeId, filename) {
 function updateNodeThumbnail(card, nodeId, filename) {
     const existing = card.querySelector('.image-thumb-container');
     if (existing) existing.remove();
-    
-    if (filename && els.result) {
+
+    if (!filename || !els.result) return;
+    if (card.dataset.classType === "LoadImage" || card.dataset.classType === "LoadImageMask") {
         const container = renderImageThumbnail(nodeId, filename);
         if (container) {
             container.classList.add('image-thumb-container');
@@ -100,11 +109,36 @@ async function loadNodeThumbnails() {
             const filename = node.inputs?.image;
             if (filename) {
                 const card = document.querySelector(`.compact-card[data-id="${id}"]`);
+                if (card && !card.dataset.classType) {
+                    card.dataset.classType = node.class_type;
+                }
                 if (card && !card.querySelector('.image-thumb-container')) {
                     updateNodeThumbnail(card, id, filename);
                 }
             }
         }
+    }
+}
+
+// --- THUMBNAIL ON CHANGE HOOK ---
+function setupImageInputThumbnails() {
+    const cards = document.querySelectorAll('.compact-card[data-id]');
+    for (const card of cards) {
+        const nodeId = card.dataset.id;
+        const node = loadedWorkflow[nodeId];
+        if (!node || !(node.class_type === "LoadImage" || node.class_type === "LoadImageMask")) continue;
+
+        const imageInput = card.querySelector('input[data-key="image"], select[data-key="image"]');
+        if (!imageInput) continue;
+
+        const existingHandler = imageInput.dataset.thumbBound;
+        if (existingHandler) continue;
+
+        const handler = () => {
+            updateNodeThumbnail(card, nodeId, node.inputs?.image);
+        };
+        imageInput.addEventListener('change', handler);
+        imageInput.dataset.thumbBound = 'true';
     }
 }
 
@@ -1089,6 +1123,9 @@ async function renderControls() {
         }
     }
     els.controls.scrollTop = scrollTop;
+
+    // Bind thumbnail update to image input change events
+    setupImageInputThumbnails();
     
     // Load thumbnails for any LoadImage nodes that have images loaded
     setTimeout(loadNodeThumbnails, 50);
