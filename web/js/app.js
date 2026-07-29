@@ -60,7 +60,7 @@ function renderImageThumbnail(nodeId, filename) {
     if (!filename || !els.result) return null;
 
     const thumbContainer = document.createElement('div');
-    thumbContainer.className = "absolute top-3 right-3 z-20 image-thumb-container";
+    thumbContainer.className = "absolute top-3 left-3 z-20 image-thumb-container";
 
     const img = document.createElement('img');
     img.src = `/view?filename=${encodeURIComponent(filename)}&type=input&t=${Date.now()}`;
@@ -337,25 +337,26 @@ function updateGroupThumbnail(group, nodeId, key, filename) {
 
     if (!filename || !els.result) return;
 
-    const container = document.createElement('div');
-    container.setAttribute('data-group-thumb-for', `${nodeId}:${key}`);
-    container.className = "absolute top-2 right-2 z-10";
+            const container = document.createElement('div');
+            container.setAttribute('data-group-thumb-for', `${inputRef.nodeId}:${inputRef.key}`);
+            container.className = "absolute top-2 left-2 z-10";
 
-    const img = document.createElement('img');
-    img.src = `/view?filename=${encodeURIComponent(filename)}&type=input&t=${Date.now()}`;
-    img.alt = filename;
-    img.loading = 'lazy';
-    img.decoding = 'async';
-    img.style.cssText = `width:36px;height:36px;object-fit:cover;border-radius:4px;border:1.5px solid #3f3f46;cursor:pointer;background:#09090b;display:block;`;
+            const img = document.createElement('img');
+            img.src = `/view?filename=${encodeURIComponent(filename)}&type=input&t=${Date.now()}`;
+            img.alt = filename;
+            img.loading = 'lazy';
+            img.decoding = 'async';
+            img.style.cssText = `width:36px;height:36px;object-fit:cover;border-radius:4px;border:1.5px solid #3f3f46;cursor:pointer;background:#09090b;display:block;`;
 
-    img.onerror = () => {
-        container.style.display = 'none';
-        showGroupImageNotFoundIndicator(nodeId, key);
-    };
+            img.onerror = () => {
+                container.style.display = 'none';
+                showGroupImageNotFoundIndicator(inputRef.nodeId, inputRef.key);
+            };
 
-    img.onclick = (e) => {
-        e.stopPropagation();
-        openModal(`/view?filename=${encodeURIComponent(filename)}&type=input&t=${Date.now()}`);
+            img.onclick = (e) => {
+                e.stopPropagation();
+                openModal(`/view?filename=${encodeURIComponent(filename)}&type=input&t=${Date.now()}`);
+
     };
 
     container.appendChild(img);
