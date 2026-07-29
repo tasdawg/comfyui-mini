@@ -41,7 +41,7 @@ let showGroupsOnly = false;     // True when "Groups Only" filter is active
 let customGroups = [];          // Array of { id, title, inputs: [{nodeId, key}] }
 let activeGroupId = null;       // ID of the group currently being built
 
-// --- TERMINAL CONSOLE ---
+    // --- TERMINAL CONSOLE ---
 function termTs() { const d = new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`; }
 
 const TERM_COLORS = { info: 'text-blue-400', success: 'text-emerald-400', warn: 'text-yellow-400', error: 'text-red-400', progress: 'text-zinc-500' };
@@ -53,6 +53,59 @@ function logTerminal(msg, level) {
     els.termLog.appendChild(line);
     while (els.termLog.children.length > terminalMaxLines) els.termLog.removeChild(els.termLog.firstChild);
     els.termLog.scrollTop = els.termLog.scrollHeight;
+}
+
+// --- IMAGE THUMBNAIL RENDERER ---
+function renderImageThumbnail(nodeId, filename) {
+    if (!filename || !els.result) return null;
+    
+    const thumbContainer = document.createElement('div');
+    thumbContainer.className = "absolute top-3 right-3 z-20";
+    
+    const img = document.createElement('img');
+    img.src = `/view?filename=${encodeURIComponent(filename)}&type=input&t=${Date.now()}`;
+    img.alt = filename;
+    img.style.cssText = `width:48px;height:48px;object-fit:cover;border-radius:6px;border:1.5px solid #3f3f46;cursor:pointer;background:#09090b;display:block;`;
+    
+    img.onerror = () => {
+        thumbContainer.style.display = 'none';
+    };
+    
+    img.onclick = (e) => {
+        e.stopPropagation();
+        openModal(`/view?filename=${encodeURIComponent(filename)}&type=input&t=${Date.now()}`);
+    };
+    
+    thumbContainer.appendChild(img);
+    return thumbContainer;
+}
+
+function updateNodeThumbnail(card, nodeId, filename) {
+    const existing = card.querySelector('.image-thumb-container');
+    if (existing) existing.remove();
+    
+    if (filename && els.result) {
+        const container = renderImageThumbnail(nodeId, filename);
+        if (container) {
+            container.classList.add('image-thumb-container');
+            card.appendChild(container);
+        }
+    }
+}
+
+async function loadNodeThumbnails() {
+    for (const [id, node] of Object.entries(loadedWorkflow)) {
+        if (!node || typeof node !== 'object') continue;
+        if (node.class_type === "LoadImage" || node.class_type === "LoadImageMask") {
+            const filename = node.inputs?.image;
+            if (filename) {
+                const card = document.querySelector(`.compact-card[data-id="${id}"]`);
+                if (card && !card.querySelector('.image-thumb-container')) {
+                    updateNodeThumbnail(card, id, filename);
+                }
+            }
+        }
+    }
 }
 
 // --- API HELPERS ---
@@ -302,6 +355,12 @@ export function handleImageUpload(nodeId, inputKey, statusElement, inputElement,
                 } else if (loadedWorkflow[nodeId] && loadedWorkflow[nodeId].inputs) {
                     // Fallback for app.js legacy calls if callback not provided
                     loadedWorkflow[nodeId].inputs[inputKey] = filename;
+                }
+
+                // Update thumbnail on the node card
+                const cardEl = inputElement.closest('.compact-card');
+                if (cardEl && (loadedWorkflow[nodeId]?.class_type === "LoadImage" || loadedWorkflow[nodeId]?.class_type === "LoadImageMask")) {
+                    updateNodeThumbnail(cardEl, nodeId, filename);
                 }
 
                 // Visuals: Orange Border, Done Text
@@ -1030,6 +1089,9 @@ async function renderControls() {
         }
     }
     els.controls.scrollTop = scrollTop;
+    
+    // Load thumbnails for any LoadImage nodes that have images loaded
+    setTimeout(loadNodeThumbnails, 50);
 }
 
 // --- GROUPING FUNCTIONS ---
