@@ -189,6 +189,179 @@ function setupImageInputThumbnails() {
     }
 }
 
+// --- GROUP-AWARE NODE VISIBILITY ---
+function isNodeInGroup(nodeId) {
+    return customGroups.some(g => g.inputs.some(i => i.nodeId === nodeId));
+}
+
+function reShowRemovedNodes() {
+    for (const [id, node] of Object.entries(loadedWorkflow)) {
+        if (!node || typeof node !== 'object') continue;
+        const layoutEntry = loadedLayout.find(l => l.id === id);
+        if (layoutEntry && !isNodeInGroup(id) && !layoutEntry.visible) {
+            layoutEntry.visible = true;
+        }
+    }
+}
+
+// --- THUMBNAILS INSIDE GROUPS ---
+function renderGroupThumbnails() {
+    for (const group of customGroups) {
+        for (const inputRef of group.inputs) {
+            const node = loadedWorkflow[inputRef.nodeId];
+            if (!node || !(node.class_type === "LoadImage" || node.class_type === "LoadImageMask")) continue;
+            if (inputRef.key !== 'image') continue;
+
+            const filename = node.inputs?.image;
+            const groupCard = document.querySelector(`.compact-card[data-group-id="${group.id}"]`);
+            if (!groupCard) continue;
+            if (!filename || !els.result) continue;
+
+            const existingThumb = groupCard.querySelector(`[data-group-thumb-for="${inputRef.nodeId}:${inputRef.key}"]`);
+            if (existingThumb) continue;
+
+            const container = document.createElement('div');
+            container.setAttribute('data-group-thumb-for', `${inputRef.nodeId}:${inputRef.key}`);
+            container.className = "absolute top-2 right-2 z-10";
+
+            const img = document.createElement('img');
+            img.src = `/view?filename=${encodeURIComponent(filename)}&type=input&t=${Date.now()}`;
+            img.alt = filename;
+            img.loading = 'lazy';
+            img.decoding = 'async';
+            img.style.cssText = `width:36px;height:36px;object-fit:cover;border-radius:4px;border:1.5px solid #3f3f46;cursor:pointer;background:#09090b;display:block;`;
+
+            img.onerror = () => {
+                container.style.display = 'none';
+                showGroupImageNotFoundIndicator(inputRef.nodeId, inputRef.key);
+            };
+
+            img.onclick = (e) => {
+                e.stopPropagation();
+                openModal(`/view?filename=${encodeURIComponent(filename)}&type=input&t=${Date.now()}`);            };
+
+            container.appendChild(img);
+            groupCard.appendChild(container);
+        }
+    }
+}
+
+function showGroupImageNotFoundIndicator(nodeId, key) {
+    for (const group of customGroups) {
+        const inputRef = group.inputs.find(i => i.nodeId === nodeId && i.key === key);
+        if (!inputRef) continue;
+
+        const groupCard = document.querySelector(`.compact-card[data-group-id="${group.id}"]`);
+        if (!groupCard) continue;
+
+        let indicator = groupCard.querySelector(`.group-thumb-indicator-${nodeId}:${key}`);
+        if (indicator) return;
+
+        const inputEl = groupCard.querySelector(`input[data-node="${nodeId}"][data-key="${key}"], select[data-node="${nodeId}"][data-key="${key}"]`);
+        if (!inputEl) continue;
+
+        inputEl.classList.add('border-red-500', 'ring-1', 'ring-red-500/50');
+
+        indicator = document.createElement('div');
+        indicator.className = `group-thumb-indicator-${nodeId}:${key} absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-[1px] rounded text-[7px] font-bold text-red-300 uppercase tracking-widest pointer-events-none`;
+        indicator.textContent = "Not Found";
+
+        const wrapper = inputEl.closest('div') || inputEl.parentElement;
+        if (wrapper && !wrapper.classList.contains('relative')) {
+            wrapper.style.position = 'relative';
+        }
+        if (wrapper) {
+            wrapper.appendChild(indicator);
+        } else {
+            groupCard.appendChild(indicator);
+        }
+
+        console.log(`[GroupThumb] Not found: ${nodeId}/${key}`);
+    }
+}
+
+function hideGroupImageNotFoundIndicator(nodeId, key) {
+    for (const group of customGroups) {
+        const inputRef = group.inputs.find(i => i.nodeId === nodeId && i.key === key);
+        if (!inputRef) continue;
+
+        const groupCard = document.querySelector(`.compact-card[data-group-id="${group.id}"]`);
+        if (!groupCard) continue;
+
+        let indicator = groupCard.querySelector(`.group-thumb-indicator-${nodeId}:${key}`);
+        if (indicator) indicator.remove();
+
+        const inputEl = groupCard.querySelector(`input[data-node="${nodeId}"][data-key="${key}"], select[data-node="${nodeId}"][data-key="${key}"]`);
+        if (inputEl) {
+            inputEl.classList.remove('border-red-500', 'ring-1', 'ring-red-500/50');
+        }
+    }
+}
+
+function setupGroupImageInputThumbnails() {
+    for (const group of customGroups) {
+        for (const inputRef of group.inputs) {
+            const node = loadedWorkflow[inputRef.nodeId];
+            if (!node || !(node.class_type === "LoadImage" || node.class_type === "LoadImageMask")) continue;
+            if (inputRef.key !== 'image') continue;
+
+            const groupCard = document.querySelector(`.compact-card[data-group-id="${group.id}"]`);
+            if (!groupCard) continue;
+
+            const imageInput = groupCard.querySelector(`input[data-node="${node.id || inputRef.nodeId}"][data-key="image"], select[data-node="${node.id || inputRef.nodeId}"][data-key="image"]`);
+            if (!imageInput) continue;
+
+            const boundKey = `group-thumb-${inputRef.nodeId}-${inputRef.key}`;
+            if (imageInput.dataset[boundKey]) continue;
+
+            hideGroupImageNotFoundIndicator(inputRef.nodeId, inputRef.key);
+
+            const handler = () => {
+                updateGroupThumbnail(group, inputRef.nodeId, inputRef.key, node.inputs?.image);
+            };
+            imageInput.addEventListener('change', handler);
+            imageInput.dataset[boundKey] = 'true';
+        }
+    }
+}
+
+function updateGroupThumbnail(group, nodeId, key, filename) {
+    const groupCard = document.querySelector(`.compact-card[data-group-id="${group.id}"]`);
+    if (!groupCard) return;
+
+    hideGroupImageNotFoundIndicator(nodeId, key);
+
+    for (const el of groupCard.querySelectorAll(`[data-group-thumb-for="${nodeId}:${key}"]`)) {
+        el.remove();
+    }
+
+    if (!filename || !els.result) return;
+
+    const container = document.createElement('div');
+    container.setAttribute('data-group-thumb-for', `${nodeId}:${key}`);
+    container.className = "absolute top-2 right-2 z-10";
+
+    const img = document.createElement('img');
+    img.src = `/view?filename=${encodeURIComponent(filename)}&type=input&t=${Date.now()}`;
+    img.alt = filename;
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    img.style.cssText = `width:36px;height:36px;object-fit:cover;border-radius:4px;border:1.5px solid #3f3f46;cursor:pointer;background:#09090b;display:block;`;
+
+    img.onerror = () => {
+        container.style.display = 'none';
+        showGroupImageNotFoundIndicator(nodeId, key);
+    };
+
+    img.onclick = (e) => {
+        e.stopPropagation();
+        openModal(`/view?filename=${encodeURIComponent(filename)}&type=input&t=${Date.now()}`);
+    };
+
+    container.appendChild(img);
+    groupCard.appendChild(container);
+}
+
 // --- API HELPERS ---
 export async function safeFetch(url, fallbackValue) {
     try {
@@ -438,10 +611,18 @@ export function handleImageUpload(nodeId, inputKey, statusElement, inputElement,
                     loadedWorkflow[nodeId].inputs[inputKey] = filename;
                 }
 
-                // Update thumbnail on the node card
+                // Update thumbnail on the node card (standalone)
                 const cardEl = inputElement.closest('.compact-card');
-                if (cardEl && (loadedWorkflow[nodeId]?.class_type === "LoadImage" || loadedWorkflow[nodeId]?.class_type === "LoadImageMask")) {
+                if (cardEl && !cardEl.dataset.groupId && (loadedWorkflow[nodeId]?.class_type === "LoadImage" || loadedWorkflow[nodeId]?.class_type === "LoadImageMask")) {
                     updateNodeThumbnail(cardEl, nodeId, filename);
+                }
+
+                // Update thumbnail inside groups if this node is in a group
+                for (const group of customGroups) {
+                    const inputRef = group.inputs.find(i => i.nodeId === nodeId && i.key === 'image');
+                    if (inputRef) {
+                        updateGroupThumbnail(group, nodeId, 'image', filename);
+                    }
                 }
 
                 // Visuals: Orange Border, Done Text
@@ -906,6 +1087,7 @@ async function renderControls() {
             ? (isActive ? 'border-dashed border-green-500 ring-1 ring-green-500' : 'border-dashed border-orange-500/50') 
             : 'border-orange-500';
         
+        card.dataset.groupId = group.id;
         card.className = `compact-card relative z-10 mb-4 flex flex-col overflow-hidden min-h-[100px] border-2 ${editStyle}`;
         card.style.height = 'auto';
 
@@ -1051,6 +1233,7 @@ async function renderControls() {
             const node = loadedWorkflow[item.id];
             if (!node || !node.class_type) continue;
             if (!item.visible && !isEditMode) continue;
+            if (isNodeInGroup(item.id)) continue;
 
             let def = objectInfo[node.class_type] || await getObjectInfo(node.class_type);
             
@@ -1171,8 +1354,12 @@ async function renderControls() {
     }
     els.controls.scrollTop = scrollTop;
 
-    // Bind thumbnail update to image input change events
+    // Bind thumbnail update to image input change events (standalone nodes)
     setupImageInputThumbnails();
+    
+    // Render thumbnails inside groups and bind group image input changes
+    renderGroupThumbnails();
+    setupGroupImageInputThumbnails();
     
     // Load thumbnails for any LoadImage nodes that have images loaded
     setTimeout(loadNodeThumbnails, 50);
@@ -1226,6 +1413,9 @@ window.toggleInputInGroup = function(groupId, nodeId, key) {
     const existsIdx = group.inputs.findIndex(i => i.nodeId === nodeId && i.key === key);
     if (existsIdx > -1) {
         group.inputs.splice(existsIdx, 1);
+        if (!isNodeInGroup(nodeId)) {
+            reShowRemovedNodes();
+        }
     } else {
         group.inputs.push({ nodeId, key });
     }
