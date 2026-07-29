@@ -254,7 +254,12 @@ function showGroupImageNotFoundIndicator(nodeId, key) {
         const groupCard = document.querySelector(`.compact-card[data-group-id="${group.id}"]`);
         if (!groupCard) continue;
 
-        let indicator = groupCard.querySelector(`.group-thumb-indicator-${nodeId}:${key}`);
+        let indicator = null;
+        for (const el of groupCard.children) {
+            if (el.getAttribute && el.getAttribute('data-group-thumb-indicator') === `${nodeId}:${key}`) {
+                indicator = el; break;
+            }
+        }
         if (indicator) return;
 
         const inputEl = groupCard.querySelector(`input[data-node="${nodeId}"][data-key="${key}"], select[data-node="${nodeId}"][data-key="${key}"]`);
@@ -263,7 +268,8 @@ function showGroupImageNotFoundIndicator(nodeId, key) {
         inputEl.classList.add('border-red-500', 'ring-1', 'ring-red-500/50');
 
         indicator = document.createElement('div');
-        indicator.className = `group-thumb-indicator-${nodeId}:${key} absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-[1px] rounded text-[7px] font-bold text-red-300 uppercase tracking-widest pointer-events-none`;
+        indicator.setAttribute('data-group-thumb-indicator', `${nodeId}:${key}`);
+        indicator.className = "absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-[1px] rounded text-[7px] font-bold text-red-300 uppercase tracking-widest pointer-events-none";
         indicator.textContent = "Not Found";
 
         const wrapper = inputEl.closest('div') || inputEl.parentElement;
@@ -288,7 +294,12 @@ function hideGroupImageNotFoundIndicator(nodeId, key) {
         const groupCard = document.querySelector(`.compact-card[data-group-id="${group.id}"]`);
         if (!groupCard) continue;
 
-        let indicator = groupCard.querySelector(`.group-thumb-indicator-${nodeId}:${key}`);
+        let indicator = null;
+        for (const el of groupCard.children) {
+            if (el.getAttribute && el.getAttribute('data-group-thumb-indicator') === `${nodeId}:${key}`) {
+                indicator = el; break;
+            }
+        }
         if (indicator) indicator.remove();
 
         const inputEl = groupCard.querySelector(`input[data-node="${nodeId}"][data-key="${key}"], select[data-node="${nodeId}"][data-key="${key}"]`);
