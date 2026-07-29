@@ -16,6 +16,20 @@
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 2px; }
         .edit-btn { @apply p-1.5 rounded bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors; }
+
+        /* Terminal Console */
+        #terminal-container { position: fixed; bottom: 0; left: 0; right: 0; z-index: 51; padding-bottom: env(safe-area-inset-bottom, 0px); }
+        #terminal-panel { background: #09090b; border-top: 1px solid #27272a; display: flex; flex-direction: column; max-height: 280px; overflow: hidden; transition: max-height 200ms ease; }
+        #terminal-header { height: 30px; padding: 0 10px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #27272a; user-select: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+        .term-title { font-size: 10px; font-weight: 600; color: #52525b; letter-spacing: 0.08em; text-transform: uppercase; display: flex; align-items: center; gap: 6px; }
+        .term-dot { width: 6px; height: 6px; border-radius: 50%; transition: background-color 200ms, box-shadow 200ms; }
+        #terminal-log { padding: 4px 8px; overflow-y: auto; flex: 1; min-height: 0; max-height: 230px; font-family: 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 9.5px; line-height: 1.6; color: #a1a1aa; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+        .term-line { white-space: pre-wrap; word-break: break-all; padding: 0 2px; border-radius: 2px; }
+        .term-line:hover { background: rgba(39,39,42,0.5); }
+        #terminal-toggle { position: absolute; top: -18px; left: 50%; transform: translateX(-50%); width: 40px; height: 18px; border-radius: 0 0 10px 10px; background: #121212; border: 1px solid #27272a; border-top: none; display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; color: #52525b; transition: background 150ms, color 150ms; z-index: 52; touch-action: manipulation; }
+        #terminal-toggle:hover { background: #18181b; color: #a1a1aa; }
+        .toggle-chevron svg { width: 14px; height: 14px; transition: transform 200ms ease; will-change: transform; }
+        @media (max-height: 500px) { #terminal-container { display: none !important; } }
     </style>
 </head>
 <body class="w-full flex flex-col overflow-hidden text-xs">
@@ -40,7 +54,7 @@
         <div id="hidden-list"></div>
     </div>
 
-    <main class="flex-1 overflow-y-auto p-2 pb-20 relative w-full space-y-2" id="main-scroll">
+    <main class="flex-1 overflow-y-auto p-2 pb-[8rem] relative w-full space-y-2" id="main-scroll">
         <div class="compact-card min-h-[300px] flex items-center justify-center relative overflow-hidden group">
             <img id="result-image" class="max-h-[50vh] w-full object-contain opacity-50 transition-opacity cursor-pointer" src="" alt="">
             <div id="empty-state" class="absolute inset-0 flex flex-col items-center justify-center text-zinc-700 pointer-events-none"><span class="text-[10px] uppercase tracking-widest opacity-60">Ready</span></div>
@@ -59,6 +73,20 @@
 
     <!-- Hidden Input for Image Upload -->
     <input type="file" id="image-upload-input" accept="image/*" class="hidden">
+
+    <!-- Terminal Console (Collapsible) -->
+    <div id="terminal-container">
+        <button id="terminal-toggle" aria-label="Toggle console">
+            <span class="toggle-chevron"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></span>
+        </button>
+        <div id="terminal-panel">
+            <div id="terminal-header">
+                <div class="term-title"><span class="term-dot bg-green-500" id="ws-status-dot"></span><span>CMD</span></div>
+                <button id="term-clear-btn" class="text-[9px] text-zinc-600 hover:text-zinc-400 uppercase font-bold tracking-wider transition-colors px-1.5 py-0.5 rounded bg-zinc-800/50">CLR</button>
+            </div>
+            <div id="terminal-log"></div>
+        </div>
+    </div>
 
     <script type="module" src="/mini/js/app.js"></script>
 </body>

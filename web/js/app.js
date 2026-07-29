@@ -15,7 +15,11 @@ const els = {
     header: document.getElementById('header-title'),
     modal: document.getElementById('image-modal'),
     modalImg: document.getElementById('modal-image'),
-    closeModal: document.getElementById('close-modal')
+    closeModal: document.getElementById('close-modal'),
+    termToggle: document.getElementById('terminal-toggle'),
+    wsStatusDot: document.getElementById('ws-status-dot'),
+    termLog: document.getElementById('terminal-log'),
+    termClearBtn: document.getElementById('term-clear-btn')
 };
 
 let loadedWorkflow = {};
@@ -26,12 +30,30 @@ let clientId = ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ crypto.g
 let socket = null;
 let currentPromptId = null;
 
+// --- Terminal Console State ---
+const terminalMaxLines = 300;
+let terminalCollapsed = true;
+
 // --- NEW STATE FOR GROUPS ---
 let isEditMode = false;
 let isGroupingMode = false;     // True when we are currently selecting inputs
 let showGroupsOnly = false;     // True when "Groups Only" filter is active
 let customGroups = [];          // Array of { id, title, inputs: [{nodeId, key}] }
 let activeGroupId = null;       // ID of the group currently being built
+
+// --- TERMINAL CONSOLE ---
+function termTs() { const d = new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`; }
+
+const TERM_COLORS = { info: 'text-blue-400', success: 'text-emerald-400', warn: 'text-yellow-400', error: 'text-red-400', progress: 'text-zinc-500' };
+function logTerminal(msg, level) {
+    if (!els.termLog || !level) return;
+    const line = document.createElement('div');
+    line.className = `term-line ${TERM_COLORS[level] || TERM_COLORS.info}`;
+    line.textContent = `[${termTs()}] ${msg}`;
+    els.termLog.appendChild(line);
+    while (els.termLog.children.length > terminalMaxLines) els.termLog.removeChild(els.termLog.firstChild);
+    els.termLog.scrollTop = els.termLog.scrollHeight;
+}
 
 // --- API HELPERS ---
 export async function safeFetch(url, fallbackValue) {
@@ -186,6 +208,8 @@ async function init() {
             });
         }
 
+        logTerminal(`Loaded ${Object.keys(loadedWorkflow).length} nodes${specificFile ? ` from ${specificFile}` : ''}`, "info");
+
     } catch(e) { 
         console.error(e); 
         alert("Initialization Error: " + e.message); 
@@ -196,6 +220,25 @@ async function init() {
     if(els.editBtn) els.editBtn.onclick = toggleEditMode;
     if(els.saveLayoutBtn) els.saveLayoutBtn.onclick = saveLayout;
     setupMainPageModal();
+
+    // --- Terminal Toggle & Clear ---
+    if (els.termToggle) {
+        els.termToggle.addEventListener('click', () => {
+            const panel = document.getElementById('terminal-panel');
+            const chev = els.termToggle.querySelector('.toggle-chevron svg');
+            terminalCollapsed = !terminalCollapsed;
+            panel.style.maxHeight = terminalCollapsed ? '30px' : '280px';
+            chev.style.transform = terminalCollapsed ? '' : 'rotate(180deg)';
+            if (!terminalCollapsed) els.termLog.scrollTop = els.termLog.scrollHeight;
+        });
+    }
+    if (els.termClearBtn) {
+        els.termClearBtn.addEventListener('click', () => {
+            if (els.termLog) els.termLog.innerHTML = '';
+        });
+    }
+
+    logTerminal(`Session: ${window.location.pathname}`);
 }
 
 // --- UPLOAD HELPER (EXPORTED & DECOUPLED) ---
@@ -322,8 +365,17 @@ function connectWS() {
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     socket = new WebSocket(`${proto}//${window.location.host}/ws?clientId=${clientId}`);
     socket.binaryType = "arraybuffer";
-    socket.onopen = () => { if(els.dot) { els.dot.classList.replace('bg-red-500', 'bg-green-500'); els.dot.classList.add('shadow-green-500'); } };
-    socket.onclose = () => { if(els.dot) { els.dot.classList.replace('bg-green-500', 'bg-red-500'); els.dot.classList.remove('shadow-green-500'); } setTimeout(connectWS, 2000); };
+    socket.onopen = () => {
+        if(els.dot) { els.dot.classList.replace('bg-red-500', 'bg-green-500'); els.dot.classList.add('shadow-green-500'); }
+        if(els.wsStatusDot) { els.wsStatusDot.className = 'term-dot bg-green-500'; }
+        logTerminal("WS connected", "success");
+    };
+    socket.onclose = () => {
+        if(els.dot) { els.dot.classList.replace('bg-green-500', 'bg-red-500'); els.dot.classList.remove('shadow-green-500'); }
+        if(els.wsStatusDot) { els.wsStatusDot.className = 'term-dot bg-red-500'; }
+        logTerminal("WS disconnected — reconnecting...", "warn");
+        setTimeout(connectWS, 2000);
+    };
     socket.onmessage = (e) => {
         if (e.data instanceof ArrayBuffer) {
             const blob = new Blob([e.data.slice(8)], { type: 'image/jpeg' });
@@ -460,6 +512,7 @@ async function handleMsg(msg) {
 
     if (msg.type === 'status' && msg.data.status.exec_info.queue_remaining === 0) {
         // EXECUTION FINISHED
+        logTerminal("Execution finished", "success");
         if(els.loading) els.loading.classList.add('hidden');
         if(els.genBtn) els.genBtn.classList.remove('hidden');
         if(els.stopBtn) els.stopBtn.classList.add('hidden');
@@ -471,12 +524,15 @@ async function handleMsg(msg) {
         }
 
     } else if (msg.type === 'progress') {
-        if(els.progress) els.progress.innerText = `${Math.round((msg.data.value/msg.data.max)*100)}%`;
-        
+        const pct = Math.round((msg.data.value/msg.data.max)*100);
+        if(els.progress) els.progress.innerText = `${pct}%`;
+        logTerminal(`Progress: ${pct}%`, "progress");
+
     } else if (msg.type === 'executed') {
         // 1. Handle Images
         if (msg.data.output.images) {
             const img = msg.data.output.images[0];
+            logTerminal(`Image generated: ${img.filename}`, "success");
             if(els.result) {
                 els.result.src = `/view?filename=${img.filename}&subfolder=${img.subfolder}&type=${img.type}&t=${Date.now()}`;
                 els.result.classList.remove('opacity-50');
@@ -1100,6 +1156,7 @@ function makeCardResizable(card, handle) {
 
 // Replace your existing run() function
 async function run() {
+    logTerminal("Rolling...");
     if(els.genBtn) els.genBtn.classList.add('hidden');
     if(els.stopBtn) els.stopBtn.classList.remove('hidden');
     if(els.loading) els.loading.classList.remove('hidden');
@@ -1114,6 +1171,7 @@ async function run() {
         }
     }
     // ADDED: Force save active workflow to disk before running
+    logTerminal("Saving workflow...");
     await fetch('/mini/save_workflow', { 
         method: 'POST', 
         body: JSON.stringify(loadedWorkflow) 
@@ -1157,6 +1215,7 @@ async function run() {
         if (!res.ok) throw new Error(`Server Error ${res.status}`);
         
         const data = await res.json();
+        logTerminal(`Prompt queued (id: ${data.prompt_id})`, "info");
         console.log("[DEBUG] Run Started. Prompt ID:", data.prompt_id);
         
         // --- CAPTURE THE ID HERE ---
@@ -1164,6 +1223,7 @@ async function run() {
         
         renderControls();
     } catch(e) { 
+        logTerminal(`Run failed: ${e.message}`, "error");
         alert("Run failed: " + e.message); 
         console.error(e);
         if(els.genBtn) els.genBtn.classList.remove('hidden'); 
@@ -1328,7 +1388,13 @@ function setVisibility(id, visible) {
     }
 }
 
-async function interrupt() { await fetch('/interrupt', { method: 'POST' }); }
+async function interrupt() {
+    logTerminal("Interrupting...", "warn");
+    if(els.loading) els.loading.classList.add('hidden');
+    if(els.genBtn) els.genBtn.classList.remove('hidden');
+    if(els.stopBtn) els.stopBtn.classList.add('hidden');
+    await fetch('/interrupt', { method: 'POST' });
+}
 
 // --- SAFETY CHECK: ONLY RUN INIT ON MAIN PAGE ---
 if (document.getElementById('controls-container')) {
