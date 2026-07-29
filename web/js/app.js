@@ -71,12 +71,14 @@ function renderImageThumbnail(nodeId, filename) {
 
     img.onerror = () => {
         thumbContainer.style.display = 'none';
+        showImageNotFoundIndicator(nodeId, filename);
     };
 
     img.onload = () => {
         if (thumbContainer.classList.contains('image-thumb-container')) {
             console.log(`[Thumb] Loaded: ${filename}`);
         }
+        hideImageNotFoundIndicator(nodeId);
     };
 
     img.onclick = (e) => {
@@ -88,12 +90,55 @@ function renderImageThumbnail(nodeId, filename) {
     return thumbContainer;
 }
 
+function showImageNotFoundIndicator(nodeId, filename) {
+    const card = document.querySelector(`.compact-card[data-id="${nodeId}"]`);
+    if (!card) return;
+    
+    let indicator = card.querySelector('.image-not-found-indicator');
+    if (indicator) return;
+
+    const inputEl = card.querySelector('input[data-key="image"], select[data-key="image"]');
+    if (!inputEl) return;
+
+    inputEl.classList.add('border-red-500', 'ring-1', 'ring-red-500/50');
+
+    indicator = document.createElement('div');
+    indicator.className = "image-not-found-indicator absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-[1px] rounded text-[8px] font-bold text-red-300 uppercase tracking-widest pointer-events-none";
+    indicator.textContent = "Image Not Found";
+
+    const wrapper = inputEl.closest('div') || inputEl.parentElement;
+    if (wrapper && !wrapper.classList.contains('relative')) {
+        wrapper.style.position = 'relative';
+    }
+    if (wrapper) {
+        wrapper.appendChild(indicator);
+    } else {
+        card.appendChild(indicator);
+    }
+
+    console.log(`[Thumb] Not found: ${filename}`);
+}
+
+function hideImageNotFoundIndicator(nodeId) {
+    const card = document.querySelector(`.compact-card[data-id="${nodeId}"]`);
+    if (!card) return;
+
+    const indicator = card.querySelector('.image-not-found-indicator');
+    if (indicator) indicator.remove();
+
+    const inputEl = card.querySelector('input[data-key="image"], select[data-key="image"]');
+    if (inputEl) {
+        inputEl.classList.remove('border-red-500', 'ring-1', 'ring-red-500/50');
+    }
+}
+
 function updateNodeThumbnail(card, nodeId, filename) {
     const existing = card.querySelector('.image-thumb-container');
     if (existing) existing.remove();
 
     if (!filename || !els.result) return;
     if (card.dataset.classType === "LoadImage" || card.dataset.classType === "LoadImageMask") {
+        hideImageNotFoundIndicator(nodeId);
         const container = renderImageThumbnail(nodeId, filename);
         if (container) {
             container.classList.add('image-thumb-container');
@@ -133,6 +178,8 @@ function setupImageInputThumbnails() {
 
         const existingHandler = imageInput.dataset.thumbBound;
         if (existingHandler) continue;
+
+        hideImageNotFoundIndicator(nodeId);
 
         const handler = () => {
             updateNodeThumbnail(card, nodeId, node.inputs?.image);
