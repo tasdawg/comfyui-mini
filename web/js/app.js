@@ -40,6 +40,7 @@ let isGroupingMode = false;     // True when we are currently selecting inputs
 let showGroupsOnly = false;     // True when "Groups Only" filter is active
 let customGroups = [];          // Array of { id, title, inputs: [{nodeId, key}] }
 let activeGroupId = null;       // ID of the group currently being built
+let thumbBoundInputs = new Set();  // Tracks input elements that already have thumbnail handlers bound (avoids duplicate bindings across renders)
 
     // --- TERMINAL CONSOLE ---
 function termTs() { const d = new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`; }
@@ -176,8 +177,7 @@ function setupImageInputThumbnails() {
         const imageInput = card.querySelector('input[data-key="image"], select[data-key="image"]');
         if (!imageInput) continue;
 
-        const existingHandler = imageInput.dataset.thumbBound;
-        if (existingHandler) continue;
+        if (thumbBoundInputs.has(imageInput)) continue;
 
         hideImageNotFoundIndicator(nodeId);
 
@@ -185,7 +185,7 @@ function setupImageInputThumbnails() {
             updateNodeThumbnail(card, nodeId, node.inputs?.image);
         };
         imageInput.addEventListener('change', handler);
-        imageInput.dataset.thumbBound = 'true';
+        thumbBoundInputs.add(imageInput);
     }
 }
 
@@ -322,8 +322,7 @@ function setupGroupImageInputThumbnails() {
             const imageInput = groupCard.querySelector(`input[data-node="${node.id || inputRef.nodeId}"][data-key="image"], select[data-node="${node.id || inputRef.nodeId}"][data-key="image"]`);
             if (!imageInput) continue;
 
-            const boundKey = `group-thumb-${inputRef.nodeId}-${inputRef.key}`;
-            if (imageInput.dataset[boundKey]) continue;
+            if (thumbBoundInputs.has(imageInput)) continue;
 
             hideGroupImageNotFoundIndicator(inputRef.nodeId, inputRef.key);
 
@@ -331,7 +330,7 @@ function setupGroupImageInputThumbnails() {
                 updateGroupThumbnail(group, inputRef.nodeId, inputRef.key, node.inputs?.image);
             };
             imageInput.addEventListener('change', handler);
-            imageInput.dataset[boundKey] = 'true';
+            thumbBoundInputs.add(imageInput);
         }
     }
 }
