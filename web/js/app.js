@@ -407,7 +407,7 @@ function updateGroupThumbnail(group, nodeId, key, filename) {
     if (!filename || !els.result) return;
 
             const container = document.createElement('div');
-            container.setAttribute('data-group-thumb-for', `${inputRef.nodeId}:${inputRef.key}`);
+            container.setAttribute('data-group-thumb-for', `${nodeId}:${key}`);
             container.className = "absolute top-2 left-2 z-10";
 
             const img = document.createElement('img');
@@ -419,7 +419,7 @@ function updateGroupThumbnail(group, nodeId, key, filename) {
 
             img.onerror = () => {
                 container.style.display = 'none';
-                showGroupImageNotFoundIndicator(inputRef.nodeId, inputRef.key);
+                showGroupImageNotFoundIndicator(nodeId, key);
             };
 
             img.onclick = (e) => {
@@ -1332,6 +1332,8 @@ async function renderControls() {
                 selectEl3.dataset.node = inputRef.nodeId;
                 selectEl3.dataset.key = inputRef.key;
 
+                let options3 = [];
+                
                 try {
                     const imgListRes3 = await fetch('/object_info/LoadImage');
                     if (imgListRes3.ok) {
@@ -1339,7 +1341,6 @@ async function renderControls() {
                         const ct = imgListRes3.headers.get('content-type') || '';
                         if (!ct.includes('application/json')) throw new Error('Auth required');
                         const infoData3 = await imgListRes3.json();
-                        let options3 = [];
                         const raw = infoData3?.LoadImage?.input?.required?.image;
                         if (Array.isArray(raw)) {
                             // ComfyUI format: [0] is the option list, [1] may be "IMAGE" type hint
@@ -1623,6 +1624,8 @@ async function renderControls() {
                     selectStandalone.className = 'w-full input-dark rounded p-1.5 text-[10px] font-sans outline-none appearance-none cursor-pointer';
                     selectStandalone.dataset.key = key;
 
+                    let options4 = [];
+                    
                     try {
                         const imgListRes4 = await fetch('/object_info/LoadImage');
                         if (imgListRes4.ok) {
@@ -1630,7 +1633,6 @@ async function renderControls() {
                             const ct4 = imgListRes4.headers.get('content-type') || '';
                             if (!ct4.includes('application/json')) throw new Error('Auth required');
                             const infoData4 = await imgListRes4.json();
-                            let options4 = [];
                             const raw4 = infoData4?.LoadImage?.input?.required?.image;
                             if (Array.isArray(raw4)) {
                                 options4 = Array.isArray(raw4[0]) ? raw4[0] : [];
