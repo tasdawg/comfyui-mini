@@ -59,6 +59,13 @@
 
     <main id="gallery-grid" class="gallery-grid flex-1 min-h-0"></main>
 
+    <!-- Pagination Nav -->
+    <nav id="gallery-nav" style="display:none;" class="shrink-0 px-4 py-3 border-t border-[#1f2937] bg-[#0a0a0a] items-center justify-between gap-6">
+        <button id="prev-btn" class="overlay-btn disabled:opacity-40 disabled:pointer-events-none" onclick="goToPage(currentPage - 1)"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg> PREV</button>
+        <span id="page-info" class="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">-</span>
+        <button id="next-btn" class="overlay-btn disabled:opacity-40 disabled:pointer-events-none" onclick="goToPage(currentPage + 1)">NEXT <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></button>
+    </nav>
+
     <!-- Fullscreen Modal -->
     <div id="gallery-modal">
         <img id="modal-img" src="" alt="">
@@ -85,6 +92,9 @@
     <script type="module">
         // --- STATE ---
         let currentFolder = 'output';  // 'output' or 'input'
+        let currentPage = 0;
+        const PAGE_SIZE = 20;
+        let allImages = [];
         let terminalCollapsed = true;
         const els = {
             grid: document.getElementById('gallery-grid'),
@@ -128,43 +138,89 @@
         async function loadGallery() {
             els.grid.innerHTML = '';
             logTerminal(`Loading ${currentFolder} folder images...`);
-            
+
             try {
                 const res = await fetch(`/mini/files?type=${currentFolder}&t=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' } });
                 if (!res.ok) throw new Error(`Server error ${res.status}`);
-                
+
                 const data = await res.json();
                 if (data.error) throw new Error(data.error);
 
-                logTerminal(`Loaded ${data.images?.length || 0} images from ${currentFolder}`, 'success');
+                allImages = data.images || [];
+                logTerminal(`Loaded ${allImages.length} images from ${currentFolder}`, 'success');
 
-                // Render thumbnails
-                for (const img of data.images || []) {
-                    const card = document.createElement('div');
-                    card.className = 'thumb-card';
-                    
-                    const thumbImg = document.createElement('img');
-                    thumbImg.src = `/view?filename=${encodeURIComponent(img.subfolder ? `${img.subfolder}/${img.filename}` : img.filename)}&type=${currentFolder}&t=${Date.now()}`;
-                    thumbImg.alt = img.filename;
-                    thumbImg.loading = 'lazy';
-                    
-                    const label = document.createElement('div');
-                    label.className = 'thumb-label';
-                    label.textContent = img.filename.replace(/\.[^/.]+$/, '');  // strip extension
-                    
-                    const badge = document.createElement('div');
-                    badge.className = `thumb-type-badge ${currentFolder}`;
-                    badge.textContent = currentFolder.toUpperCase();
-
-                    card.append(thumbImg, label, badge);
-                    
-                    card.addEventListener('click', () => openModal(img));
-                    els.grid.appendChild(card);
-                }
+                renderPage(currentPage);
             } catch (e) {
                 logTerminal(`Gallery load error: ${e.message}`, 'error');
                 els.grid.innerHTML = '<div class="flex items-center justify-center text-zinc-600 text-xs uppercase tracking-widest">No images found</div>';
             }
+        }
+
+        // --- RENDER PAGE ---
+        function renderPage(page) {
+            if (!els.grid) return;
+            els.grid.innerHTML = '';
+            
+            const totalPages = Math.ceil(allImages.length / PAGE_SIZE);
+            const start = page * PAGE_SIZE;
+            const end = Math.min(start + PAGE_SIZE, allImages.length);
+
+            for (let i = start; i < end; i++) {
+                const img = allImages[i];
+                const card = document.createElement('div');
+                card.className = 'thumb-card';
+
+                const thumbImg = document.createElement('img');
+                thumbImg.src = `/view?filename=${encodeURIComponent(img.subfolder ? `${img.subfolder}/${img.filename}` : img.filename)}&type=${currentFolder}&t=${Date.now()}`;
+                thumbImg.alt = img.filename;
+                thumbImg.loading = 'lazy';
+
+                const label = document.createElement('div');
+                label.className = 'thumb-label';
+                label.textContent = img.filename.replace(/\.[^/.]+$/, '');  // strip extension
+
+                const badge = document.createElement('div');
+                badge.className = `thumb-type-badge ${currentFolder}`;
+                badge.textContent = currentFolder.toUpperCase();
+
+                card.append(thumbImg, label, badge);
+
+                card.addEventListener('click', () => openModal(img));
+                els.grid.appendChild(card);
+            }
+
+            // Update pagination UI
+            updatePagination(page, totalPages);
+        }
+
+        function updatePagination(page, totalPages) {
+            const nav = document.getElementById('gallery-nav');
+            if (!nav) return;
+            
+            if (totalPages <= 1) {
+                nav.style.display = 'none';
+                return;
+            }
+            
+            nav.style.display = 'flex';
+            
+            const info = document.getElementById('page-info');
+            if (info) info.textContent = `Page ${page + 1} of ${totalPages}`;
+            
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+            
+            if (!prevBtn || !nextBtn) return;
+            
+            prevBtn.disabled = page === 0;
+            nextBtn.disabled = page >= totalPages - 1;
+        }
+
+        function goToPage(page) {
+            const totalPages = Math.ceil(allImages.length / PAGE_SIZE);
+            if (page < 0 || page >= totalPages) return;
+            currentPage = page;
+            renderPage(currentPage);
         }
 
         // --- MODAL ---
