@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #030712; color: #d4d4d8; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; padding: 12px; flex: 1; overflow-y: auto; align-content: start; }
+        .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; padding: 12px 12px 12px 12px; flex: 1; overflow-y: auto; align-content: start; }
         .thumb-card { position: relative; aspect-ratio: 1; border-radius: 6px; overflow: hidden; cursor: pointer; transition: transform 150ms, box-shadow 150ms; background-color: #0a0a0a; border: 1px solid #1f2937; }
         .thumb-card:hover { transform: scale(1.04); box-shadow: 0 8px 24px rgba(0,0,0,0.6); border-color: #3b82f6; z-index: 5; }
         .thumb-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -25,18 +25,6 @@
         .overlay-btn:hover { background: #374151; color: #fff; }
         .overlay-btn.primary { background: #2563eb; }
         .overlay-btn.primary:hover { background: #3b82f6; }
-
-        /* Terminal Console */
-        #terminal-container { position: fixed; bottom: 0; left: 0; right: 0; z-index: 51; padding-bottom: env(safe-area-inset-bottom, 0px); }
-        #terminal-panel { background: #09090b; border-top: 1px solid #27272a; display: flex; flex-direction: column; max-height: 200px; overflow: hidden; transition: max-height 200ms ease; }
-        #terminal-header { height: 28px; padding: 0 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #27272a; user-select: none; }
-        .term-title { font-size: 10px; font-weight: 600; color: #52525b; letter-spacing: 0.08em; text-transform: uppercase; display: flex; align-items: center; gap: 6px; }
-        .term-dot { width: 7px; height: 7px; border-radius: 50%; transition: background-color 200ms, box-shadow 200ms; }
-        #terminal-log { padding: 4px 10px; overflow-y: auto; flex: 1; min-height: 0; max-height: 170px; font-family: 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 10px; line-height: 1.6; color: #a1a1aa; }
-        .term-line { white-space: pre-wrap; word-break: break-all; padding: 0 3px; border-radius: 2px; }
-        #terminal-toggle { position: absolute; top: -18px; left: 50%; transform: translateX(-50%); width: 40px; height: 18px; border-radius: 10px 10px 0 0; background: #121212; border: 1px solid #27272a; border-bottom: none; display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; color: #52525b; transition: background 150ms, color 150ms; z-index: 52; }
-        #terminal-toggle:hover { background: #18181b; color: #a1a1aa; }
-        .toggle-chevron svg { width: 14px; height: 14px; transition: transform 200ms ease; }
 
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
@@ -57,14 +45,14 @@
         </div>
     </header>
 
-    <main id="gallery-grid" class="gallery-grid flex-1 min-h-0"></main>
-
-    <!-- Pagination Nav -->
-    <nav id="gallery-nav" style="display:none;" class="shrink-0 px-4 py-3 border-t border-[#1f2937] bg-[#0a0a0a] items-center justify-between gap-6">
-        <button id="prev-btn" class="overlay-btn disabled:opacity-40 disabled:pointer-events-none" onclick="goToPage(currentPage - 1)"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg> PREV</button>
-        <span id="page-info" class="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">-</span>
-        <button id="next-btn" class="overlay-btn disabled:opacity-40 disabled:pointer-events-none" onclick="goToPage(currentPage + 1)">NEXT <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></button>
+    <!-- Floating Pagination Bar (Top Right) -->
+    <nav id="pagination-bar" style="display:none;" class="fixed top-[40px] right-[12px] z-50 flex items-center gap-3 bg-[#0a0a0a]/95 border border-[#27272a] rounded-lg px-3 py-2 backdrop-blur shadow-lg">
+        <button id="prev-btn" class="overlay-btn disabled:opacity-40 disabled:pointer-events-none"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg></button>
+        <span id="page-info" class="text-[10px] text-zinc-400 uppercase font-bold tracking-wider">-</span>
+        <button id="next-btn" class="overlay-btn disabled:opacity-40 disabled:pointer-events-none"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></button>
     </nav>
+
+    <main id="gallery-grid" class="gallery-grid flex-1 min-h-0 pt-[48px]"></main>
 
     <!-- Fullscreen Modal -->
     <div id="gallery-modal">
@@ -75,70 +63,40 @@
         </div>
     </div>
 
-    <!-- Terminal Console -->
-    <div id="terminal-container">
-        <button id="terminal-toggle" aria-label="Toggle console">
-            <span class="toggle-chevron"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></span>
-        </button>
-        <div id="terminal-panel">
-            <div id="terminal-header">
-                <div class="term-title"><span class="term-dot bg-green-500" id="ws-status-dot-inner"></span><span>CMD</span></div>
-                <button id="term-clear-btn" class="text-[9px] text-zinc-600 hover:text-zinc-400 uppercase font-bold tracking-wider transition-colors px-1.5 py-0.5 rounded bg-zinc-800/50">CLR</button>
-            </div>
-            <div id="terminal-log"></div>
-        </div>
-    </div>
-
     <script type="module">
         // --- STATE ---
         let currentFolder = 'output';  // 'output' or 'input'
         let currentPage = 0;
         const PAGE_SIZE = 20;
         let allImages = [];
-        let terminalCollapsed = true;
         const els = {
             grid: document.getElementById('gallery-grid'),
             modal: document.getElementById('gallery-modal'),
             modalImg: document.getElementById('modal-img'),
             dlBtn: document.getElementById('dl-btn'),
             closeBtn: document.getElementById('close-modal'),
-            termLog: document.getElementById('terminal-log'),
-            termPanel: document.getElementById('terminal-panel')
+            paginationBar: document.getElementById('pagination-bar'),
+            pageInfo: document.getElementById('page-info'),
+            prevBtn: document.getElementById('prev-btn'),
+            nextBtn: document.getElementById('next-btn')
         };
-
-        // --- TERMINAL LOGGING ---
-        function logTerminal(msg, level = 'info') {
-            if (!els.termLog) return;
-            const line = document.createElement('div');
-            line.className = 'term-line';
-            const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
-            const colorMap = { info: '#60a5fa', success: '#4ade80', warn: '#fbbf24', error: '#f87171' };
-            line.style.color = colorMap[level] || '#a1a1aa';
-            line.textContent = `[${ts}] ${msg}`;
-            els.termLog.appendChild(line);
-            els.termLog.scrollTop = els.termLog.scrollHeight;
-        }
 
         // --- TAB SWITCHING ---
         function switchFolder(type) {
             currentFolder = type;
+            currentPage = 0;
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.className = 'tab-btn text-xs px-3 py-1 rounded uppercase font-bold transition-colors';
             });
-            const activeBtn = type === 'output' ? document.getElementById('btn-output') : document.getElementById('btn-input');
-            if (activeBtn) activeBtn.classList.add('active', 'bg-blue-600', 'text-white', 'border', 'border-blue-500');
-            else if (type === 'input') {
-                const inputBtn = document.getElementById('btn-input');
-                if (inputBtn) inputBtn.className = 'tab-btn active text-xs px-3 py-1 rounded uppercase font-bold transition-colors bg-blue-600 text-white border border-blue-500';
-            }
+            const activeBtn = type === 'output' ? els.btnOutput : els.btnInput;
+            if (activeBtn) activeBtn.className = 'tab-btn active text-xs px-3 py-1 rounded uppercase font-bold transition-colors bg-blue-600 text-white border border-blue-500';
             loadGallery();
         }
 
         // --- LOAD GALLERY ---
         async function loadGallery() {
             els.grid.innerHTML = '';
-            logTerminal(`Loading ${currentFolder} folder images...`);
-
+            
             try {
                 const res = await fetch(`/mini/files?type=${currentFolder}&t=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' } });
                 if (!res.ok) throw new Error(`Server error ${res.status}`);
@@ -147,11 +105,9 @@
                 if (data.error) throw new Error(data.error);
 
                 allImages = data.images || [];
-                logTerminal(`Loaded ${allImages.length} images from ${currentFolder}`, 'success');
-
+                
                 renderPage(currentPage);
             } catch (e) {
-                logTerminal(`Gallery load error: ${e.message}`, 'error');
                 els.grid.innerHTML = '<div class="flex items-center justify-center text-zinc-600 text-xs uppercase tracking-widest">No images found</div>';
             }
         }
@@ -160,7 +116,7 @@
         function renderPage(page) {
             if (!els.grid) return;
             els.grid.innerHTML = '';
-            
+
             const totalPages = Math.ceil(allImages.length / PAGE_SIZE);
             const start = page * PAGE_SIZE;
             const end = Math.min(start + PAGE_SIZE, allImages.length);
@@ -184,36 +140,23 @@
                 badge.textContent = currentFolder.toUpperCase();
 
                 card.append(thumbImg, label, badge);
-
                 card.addEventListener('click', () => openModal(img));
                 els.grid.appendChild(card);
             }
 
-            // Update pagination UI
             updatePagination(page, totalPages);
         }
 
         function updatePagination(page, totalPages) {
-            const nav = document.getElementById('gallery-nav');
-            if (!nav) return;
-            
             if (totalPages <= 1) {
-                nav.style.display = 'none';
+                els.paginationBar.style.display = 'none';
                 return;
             }
-            
-            nav.style.display = 'flex';
-            
-            const info = document.getElementById('page-info');
-            if (info) info.textContent = `Page ${page + 1} of ${totalPages}`;
-            
-            const prevBtn = document.getElementById('prev-btn');
-            const nextBtn = document.getElementById('next-btn');
-            
-            if (!prevBtn || !nextBtn) return;
-            
-            prevBtn.disabled = page === 0;
-            nextBtn.disabled = page >= totalPages - 1;
+
+            els.paginationBar.style.display = 'flex';
+            els.pageInfo.textContent = `Page ${page + 1} of ${totalPages}`;
+            els.prevBtn.disabled = page === 0;
+            els.nextBtn.disabled = page >= totalPages - 1;
         }
 
         function goToPage(page) {
@@ -229,8 +172,6 @@
             els.modalImg.src = `/view?filename=${encodeURIComponent(filename)}&type=${currentFolder}&t=${Date.now()}`;
             els.dlBtn.dataset.url = `/view?filename=${encodeURIComponent(filename)}&type=${currentFolder}&t=${Date.now()}`;
             els.dlBtn.dataset.filename = image.filename;
-            
-            // Show modal with animation
             els.modal.classList.add('active');
         }
 
@@ -243,13 +184,11 @@
         async function downloadImage() {
             const url = els.dlBtn.dataset.url;
             if (!url) return;
-            
+
             try {
-                logTerminal(`Downloading ${els.dlBtn.dataset.filename}...`, 'info');
-                
                 const res = await fetch(url);
                 if (!res.ok) throw new Error(`Download failed: ${res.status}`);
-                
+
                 const blob = await res.blob();
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(blob);
@@ -258,11 +197,7 @@
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(a.href);
-                
-                logTerminal(`Downloaded: ${els.dlBtn.dataset.filename}`, 'success');
             } catch (e) {
-                logTerminal(`Download error: ${e.message}`, 'error');
-                // Fallback: open in new tab
                 window.open(els.dlBtn.dataset.url, '_blank');
             }
         }
@@ -271,13 +206,9 @@
         function setupKeyboard() {
             document.addEventListener('keydown', (e) => {
                 if (!els.modal.classList.contains('active')) return;
-                
-                if (e.key === 'Escape') {
-                    closeGalleryModal();
-                }
+                if (e.key === 'Escape') closeGalleryModal();
             });
-            
-            // Click outside image to close
+
             els.modal.addEventListener('click', (e) => {
                 if (e.target === els.modal || e.target === els.modalImg) {
                     closeGalleryModal();
@@ -285,35 +216,20 @@
             });
         }
 
-        // --- TERMINAL TOGGLE ---
-        function initTerminal() {
-            const termToggle = document.getElementById('terminal-toggle');
-            if (!termToggle) return;
-            
-            termToggle.addEventListener('click', () => {
-                terminalCollapsed = !terminalCollapsed;
-                els.termPanel.style.maxHeight = terminalCollapsed ? '30px' : '200px';
-                const chev = termToggle.querySelector('.toggle-chevron svg');
-                chev.style.transform = terminalCollapsed ? '' : 'rotate(180deg)';
-            });
-
-            document.getElementById('term-clear-btn').addEventListener('click', () => {
-                if (els.termLog) els.termLog.innerHTML = '';
-            });
-        }
-
         // --- INIT ---
         async function init() {
-            initTerminal();
-            
-            document.getElementById('btn-output').addEventListener('click', () => switchFolder('output'));
-            document.getElementById('btn-input').addEventListener('click', () => switchFolder('input'));
-            
+            els.btnOutput = document.getElementById('btn-output');
+            els.btnInput = document.getElementById('btn-input');
+
+            els.prevBtn.addEventListener('click', () => goToPage(currentPage - 1));
+            els.nextBtn.addEventListener('click', () => goToPage(currentPage + 1));
             els.closeBtn.addEventListener('click', closeGalleryModal);
             els.dlBtn.addEventListener('click', downloadImage);
-            
+
+            if (els.btnOutput) els.btnOutput.addEventListener('click', () => switchFolder('output'));
+            if (els.btnInput) els.btnInput.addEventListener('click', () => switchFolder('input'));
+
             setupKeyboard();
-            
             await loadGallery();
         }
 
