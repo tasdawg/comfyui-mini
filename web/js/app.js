@@ -404,6 +404,9 @@ function updateGroupThumbnail(group, nodeId, key, filename) {
         el.remove();
     }
 
+    // Skip overlay when node already has an inline thumbnail in its cell (LoadImage/LoadImageMask cells)
+    const inlineThumb = groupCard.querySelector(`[data-group-thumb-for="${nodeId}:${key}"]`);
+    
     if (!filename || !els.result) return;
 
             const container = document.createElement('div');
@@ -1718,7 +1721,7 @@ async function renderControls() {
     
     // Render thumbnails inside groups and bind group image input changes
     renderGroupThumbnails();
-    setupGroupImageInputThumbnails();
+    // setupGroupImageInputThumbnails() - disabled: inline thumbnails in LoadImage cells make group overlay redundant
     
     // Load thumbnails for any LoadImage nodes that have images loaded
     setTimeout(loadNodeThumbnails, 50);
