@@ -1302,7 +1302,47 @@ async function renderControls() {
                     validInputs.push({ key, val, isTextArea: (isString && !isDropdown), isDropdown });
                 }
             }
-            if (validInputs.length === 0) continue;
+            if (validInputs.length === 0) {
+                const infoCard = document.createElement('div');
+                infoCard.dataset.id = item.id;
+                const visibilityStyle = (!item.visible && isEditMode) ? 'opacity-40 grayscale border-red-900/30' : '';
+                const editStyle = isEditMode ? 'border-dashed border-zinc-600' : '';
+                infoCard.className = `compact-card relative z-0 mb-2 flex flex-col overflow-hidden min-h-[120px] ${editStyle} ${visibilityStyle}`;
+                
+                const header = document.createElement('div');
+                header.className = 'px-3 py-1.5 bg-white/5 border-b border-[#27272a] flex justify-between items-center shrink-0';
+                const title = node._meta?.title || node.class_type;
+                
+                const titleDiv = document.createElement('div');
+                titleDiv.className = "flex items-center";
+                titleDiv.innerHTML = `<span class="text-[10px] font-bold text-zinc-300 uppercase tracking-wider truncate mr-2">${(!item.visible && isEditMode) ? `(HIDDEN) ${title}` : title}</span>`;
+                header.appendChild(titleDiv);
+
+                if (isEditMode) {
+                    const controls = document.createElement('div'); controls.className = "flex gap-1 shrink-0";
+                    controls.innerHTML = `<button class="edit-btn" onclick="moveNode(${index}, -1)">▲</button><button class="edit-btn" onclick="moveNode(${index}, 1)">▼</button><button class="edit-btn ${item.visible ? 'text-red-400' : 'text-green-400 font-bold'}" onclick="setVisibility('${item.id}', ${!item.visible})">${item.visible ? 'Hide' : 'Show'}</button>`;
+                    header.appendChild(controls);
+                }
+                infoCard.appendChild(header);
+
+                const body = document.createElement('div');
+                body.className = 'px-3 py-2 text-[10px] text-zinc-500 flex justify-between items-start';
+                const classTypeSpan = document.createElement('span');
+                classTypeSpan.textContent = node.class_type;
+                classTypeSpan.title = `Class type: ${node.class_type}`;
+                body.appendChild(classTypeSpan);
+
+                if (isEditMode) {
+                    const groupLabel = document.createElement('span');
+                    groupLabel.className = "text-zinc-600";
+                    groupLabel.textContent = isNodeInGroup(item.id) ? `Group: ${getGroupName(item.id)}` : "(no group)";
+                    body.appendChild(groupLabel);
+                }
+
+                infoCard.appendChild(body);
+                nodesList.appendChild(infoCard);
+                continue;
+            }
 
             const card = document.createElement('div');
             card.dataset.id = item.id; 
