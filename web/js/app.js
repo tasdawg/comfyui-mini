@@ -1223,6 +1223,117 @@ async function renderControls() {
                 continue;
             }
 
+            // --- IMAGE INPUT IN GROUPS: Render thumbnail + dropdown inline instead of overlay ---
+            const isImageNode = (originalNode.class_type === "LoadImage" || originalNode.class_type === "LoadImageMask");
+            if (isImageNode && inputRef.key === 'image') {
+                const groupWrapImg = document.createElement('div');
+                groupWrapImg.className = 'space-y-1';
+                
+                const nodeTitle2 = originalNode._meta?.title || originalNode.class_type;
+                const labelRow2 = document.createElement('div');
+                labelRow2.className = "flex justify-between items-baseline";
+                
+                let leftPart2 = `
+                    <div class="flex flex-col">
+                        <label class="block text-[9px] font-medium text-zinc-300 uppercase tracking-wider">${inputRef.key.replace(/_/g,' ')}</label>
+                        <span class="text-[8px] text-zinc-600 truncate max-w-[100px]">${nodeTitle2}</span>
+                    </div>
+                `;
+                
+                let rightPart2 = isEditMode ? `
+                    <div class="flex gap-1 ml-2">
+                        <button class="text-[9px] text-zinc-500 hover:text-white px-1" onclick="moveGroupInput('${group.id}', ${i}, -1)">▲</button>
+                        <button class="text-[9px] text-zinc-500 hover:text-white px-1" onclick="moveGroupInput('${group.id}', ${i}, 1)">▼</button>
+                    </div>
+                ` : "";
+                
+                labelRow2.innerHTML = leftPart2 + rightPart2;
+                groupWrapImg.appendChild(labelRow2);
+
+                const imageFilename = originalNode.inputs?.image;
+                if (imageFilename && els.result) {
+                    // Thumbnail preview alongside dropdown
+                    const thumbContainer = document.createElement('div');
+                    thumbContainer.className = "flex items-center gap-2 mt-1";
+                    
+                    const imgEl = document.createElement('img');
+                    imgEl.src = `/view?filename=${encodeURIComponent(imageFilename)}&type=input&t=${Date.now()}`;
+                    imgEl.alt = imageFilename;
+                    imgEl.loading = 'lazy';
+                    imgEl.decoding = 'async';
+                    imgEl.style.cssText = `width:48px;height:48px;object-fit:cover;border-radius:6px;border:1.5px solid #3f3f46;cursor:pointer;background:#09090b;display:block;flex-shrink:0;`;
+
+                    imgEl.onerror = () => { showGroupImageNotFoundIndicator(originalNode._id || inputRef.nodeId, inputRef.key); };
+                    imgEl.onclick = (e) => { e.stopPropagation(); openModal(`/view?filename=${encodeURIComponent(imageFilename)}&type=input&t=${Date.now()}`); };
+
+                    thumbContainer.appendChild(imgEl);
+
+                    // Dropdown/select for choosing image
+                    const selectEl = document.createElement('select');
+                    selectEl.className = 'w-full input-dark rounded p-1.5 text-[10px] font-sans outline-none appearance-none cursor-pointer';
+                    selectEl.dataset.node = inputRef.nodeId;
+                    selectEl.dataset.key = inputRef.key;
+                    
+                    // Get all available images from ComfyUI input folder
+                    const imgListRes = await fetch('/object_info/LoadImage');
+                    if (imgListRes.ok) {
+                        try {
+                            const infoData = await imgListRes.json();
+                            const options = infoData.LoadImage?.input?.required?.image?.[1]?.options || [];
+                            if (Array.isArray(options)) {
+                                for (const opt of options) {
+                                    const oEl = document.createElement('option');
+                                    oEl.value = opt;
+                                    oEl.innerText = opt;
+                                    if (opt === imageFilename) oEl.selected = true;
+                                    selectEl.appendChild(oEl);
+                                }
+                            }
+                        } catch {}
+                    }
+                    
+                    selectEl.onchange = () => {
+                        originalNode.inputs[inputRef.key] = selectEl.value;
+                        renderControls(); // Refresh thumbnails
+                    };
+                    
+                    thumbContainer.appendChild(selectEl);
+                    groupWrapImg.appendChild(thumbContainer);
+                } else {
+                    // No image loaded — show only the dropdown/select
+                    const selectEl2 = document.createElement('select');
+                    selectEl2.className = 'w-full input-dark rounded p-1.5 text-[10px] font-sans outline-none appearance-none cursor-pointer';
+                    selectEl2.dataset.node = inputRef.nodeId;
+                    selectEl2.dataset.key = inputRef.key;
+                    
+                    const imgListRes2 = await fetch('/object_info/LoadImage');
+                    if (imgListRes2.ok) {
+                        try {
+                            const infoData2 = await imgListRes2.json();
+                            const options2 = infoData2.LoadImage?.input?.required?.image?.[1]?.options || [];
+                            if (Array.isArray(options2)) {
+                                for (const opt of options2) {
+                                    const oEl = document.createElement('option');
+                                    oEl.value = opt;
+                                    oEl.innerText = opt;
+                                    if (opt === imageFilename) oEl.selected = true;
+                                    selectEl2.appendChild(oEl);
+                                }
+                            }
+                        } catch {}
+                    }
+                    
+                    selectEl2.onchange = () => {
+                        originalNode.inputs[inputRef.key] = selectEl2.value;
+                        renderControls(); // Refresh thumbnails
+                    };
+                    groupWrapImg.appendChild(selectEl2);
+                }
+                
+                body.appendChild(groupWrapImg);
+                continue;
+            }
+
             let def = objectInfo[originalNode.class_type] || await getObjectInfo(originalNode.class_type);
             
             const groupWrap = document.createElement('div');
