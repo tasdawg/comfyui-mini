@@ -211,6 +211,36 @@ async def upload_workflow(request):
         return web.json_response({"status": "success", "filename": filename})
     return web.json_response({"error": "No file"}, status=400)
 
+@server.PromptServer.instance.routes.post("/mini/delete_workflow")
+async def delete_workflow(request):
+    try:
+        data = await request.json()
+        filename = data.get("filename", "")
+        if not filename or not filename.endswith('.json'):
+            return web.json_response({"error": "Invalid filename"}, status=400)
+
+        base = filename.replace('.json', '')
+        wf_path = os.path.join(WORKFLOWS_DIR, filename)
+        meta_path = os.path.join(META_DIR, f"{base}.meta.json")
+        groups_path = os.path.join(META_DIR, f"{base}.groups.json")
+
+        deleted = []
+        for p in [wf_path, meta_path, groups_path]:
+            if os.path.exists(p):
+                try: os.remove(p); deleted.append(os.path.basename(p))
+                except OSError as e: pass
+                continue
+            elif not os.path.exists(WORKFLOWS_DIR) and not os.path.exists(META_DIR):
+                return web.json_response({"error": f"Directory missing"}, status=500)
+
+        if filename not in deleted and not any(os.path.basename(p) in deleted for p in [wf_path, meta_path, groups_path]):
+            if os.path.exists(wf_path) or os.path.exists(meta_path) or os.path.exists(groups_path):
+                return web.json_response({"error": "Delete failed"}, status=500)
+
+        return web.json_response({"status": "deleted", "files": deleted})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
 @server.PromptServer.instance.routes.get("/mini/files")
 async def list_files(request):
     folder_type = request.query.get("type", "output")  # "output" or "input"
