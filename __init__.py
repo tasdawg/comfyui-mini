@@ -212,9 +212,17 @@ async def upload_workflow(request):
 
 @server.PromptServer.instance.routes.get("/mini/files")
 async def list_files(request):
+    folder_type = request.query.get("type", "output")  # "output" or "input"
     subfolder = request.query.get("path", "")
-    target_path = os.path.abspath(os.path.join(OUTPUT_DIR, subfolder))
-    if not target_path.startswith(os.path.abspath(OUTPUT_DIR)): return web.json_response({"error": "Invalid"}, status=403)
+    
+    if folder_type == "input":
+        src_dir = folder_paths.get_input_directory()
+    else:
+        src_dir = OUTPUT_DIR
+    
+    target_path = os.path.abspath(os.path.join(src_dir, subfolder))
+    allowed_base = os.path.abspath(src_dir)
+    if not target_path.startswith(allowed_base): return web.json_response({"error": "Invalid"}, status=403)
     if not os.path.exists(target_path): return web.json_response({"path": subfolder, "folders": [], "images": []})
     
     folders = []; images = []
@@ -224,7 +232,7 @@ async def list_files(request):
             full_path = os.path.join(target_path, item)
             if os.path.isdir(full_path): folders.append(item)
             elif item.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.gif')):
-                images.append({ "filename": item, "subfolder": subfolder, "type": "output" })
+                images.append({ "filename": item, "subfolder": subfolder, "type": folder_type })
         folders.sort(); images.sort(key=lambda x: x['filename'], reverse=True)
         return web.json_response({"path": subfolder, "folders": folders, "images": images})
     except Exception as e: return web.json_response({"error": str(e)}, status=500)

@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comfy Mini Gallery</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #030712; color: #d4d4d8; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; padding: 12px; flex: 1; overflow-y: auto; align-content: start; }
+        .thumb-card { position: relative; aspect-ratio: 1; border-radius: 6px; overflow: hidden; cursor: pointer; transition: transform 150ms, box-shadow 150ms; background-color: #0a0a0a; border: 1px solid #1f2937; }
+        .thumb-card:hover { transform: scale(1.04); box-shadow: 0 8px 24px rgba(0,0,0,0.6); border-color: #3b82f6; z-index: 5; }
+        .thumb-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .thumb-label { position: absolute; bottom: 0; left: 0; right: 0; padding: 4px 6px; background: linear-gradient(to top, rgba(0,0,0,0.85), transparent); font-size: 9px; color: #a1a1aa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+        .thumb-type-badge { position: absolute; top: 4px; right: 4px; padding: 2px 5px; border-radius: 3px; font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; pointer-events: none; }
+        .thumb-type-badge.output { background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.3); }
+        .thumb-type-badge.input { background: rgba(96, 165, 250, 0.15); color: #60a5fa; border: 1px solid rgba(96, 165, 250, 0.3); }
+
+        /* Fullscreen Modal */
+        #gallery-modal { position: fixed; inset: 0; z-index: 100; background: rgba(3,7,18,0.96); backdrop-filter: blur(4px); display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; transition: opacity 250ms; pointer-events: none; }
+        #gallery-modal.active { opacity: 1; pointer-events: auto; }
+        #modal-img { max-width: 92vw; max-height: 86vh; object-fit: contain; border-radius: 4px; box-shadow: 0 16px 48px rgba(0,0,0,0.7); user-select: none; }
+        #modal-overlay { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 101; display: flex; gap: 8px; background: rgba(9,9,11,0.92); border: 1px solid #27272a; border-radius: 10px; padding: 8px 14px; backdrop-filter: blur(6px); box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+        .overlay-btn { display: flex; align-items: center; gap: 6px; background: #1f2937; color: #e4e4e7; border: none; border-radius: 6px; padding: 6px 12px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; transition: background 150ms, color 150ms; }
+        .overlay-btn:hover { background: #374151; color: #fff; }
+        .overlay-btn.primary { background: #2563eb; }
+        .overlay-btn.primary:hover { background: #3b82f6; }
+
+        /* Terminal Console */
+        #terminal-container { position: fixed; bottom: 0; left: 0; right: 0; z-index: 51; padding-bottom: env(safe-area-inset-bottom, 0px); }
+        #terminal-panel { background: #09090b; border-top: 1px solid #27272a; display: flex; flex-direction: column; max-height: 200px; overflow: hidden; transition: max-height 200ms ease; }
+        #terminal-header { height: 28px; padding: 0 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #27272a; user-select: none; }
+        .term-title { font-size: 10px; font-weight: 600; color: #52525b; letter-spacing: 0.08em; text-transform: uppercase; display: flex; align-items: center; gap: 6px; }
+        .term-dot { width: 7px; height: 7px; border-radius: 50%; transition: background-color 200ms, box-shadow 200ms; }
+        #terminal-log { padding: 4px 10px; overflow-y: auto; flex: 1; min-height: 0; max-height: 170px; font-family: 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 10px; line-height: 1.6; color: #a1a1aa; }
+        .term-line { white-space: pre-wrap; word-break: break-all; padding: 0 3px; border-radius: 2px; }
+        #terminal-toggle { position: absolute; top: -18px; left: 50%; transform: translateX(-50%); width: 40px; height: 18px; border-radius: 10px 10px 0 0; background: #121212; border: 1px solid #27272a; border-bottom: none; display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; color: #52525b; transition: background 150ms, color 150ms; z-index: 52; }
+        #terminal-toggle:hover { background: #18181b; color: #a1a1aa; }
+        .toggle-chevron svg { width: 14px; height: 14px; transition: transform 200ms ease; }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <header class="h-9 shrink-0 flex items-center justify-between px-4 border-b border-[#1f2937] bg-[#0a0a0a] z-50">
+        <div class="flex items-center gap-3">
+            <div id="ws-status-dot" class="w-2 h-2 rounded-full bg-red-500 shadow-sm shrink-0 transition-all duration-300"></div>
+            <h1 class="font-semibold text-zinc-300 truncate tracking-tight uppercase">GALLERY</h1>
+        </div>
+        <div class="flex items-center gap-4 shrink-0">
+            <a href="/mini" class="text-zinc-500 hover:text-white transition-colors uppercase font-bold text-[10px] tracking-wider">Home</a>
+            <a href="/mini/run" class="text-zinc-500 hover:text-white transition-colors uppercase font-bold text-[10px] tracking-wider">Run</a>
+            <div class="w-px h-4 bg-zinc-800"></div>
+            <button id="btn-output" class="tab-btn active text-xs px-3 py-1 rounded uppercase font-bold transition-colors">OUTPUT</button>
+            <button id="btn-input" class="tab-btn text-xs px-3 py-1 rounded uppercase font-bold transition-colors">INPUT</button>
+        </div>
+    </header>
+
+    <main id="gallery-grid" class="gallery-grid flex-1 min-h-0"></main>
+
+    <!-- Fullscreen Modal -->
+    <div id="gallery-modal">
+        <img id="modal-img" src="" alt="">
+        <div id="modal-overlay">
+            <button id="dl-btn" class="overlay-btn primary"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg> DOWNLOAD</button>
+            <button id="close-modal" class="overlay-btn"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg> CLOSE</button>
+        </div>
+    </div>
+
+    <!-- Terminal Console -->
+    <div id="terminal-container">
+        <button id="terminal-toggle" aria-label="Toggle console">
+            <span class="toggle-chevron"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></span>
+        </button>
+        <div id="terminal-panel">
+            <div id="terminal-header">
+                <div class="term-title"><span class="term-dot bg-green-500" id="ws-status-dot-inner"></span><span>CMD</span></div>
+                <button id="term-clear-btn" class="text-[9px] text-zinc-600 hover:text-zinc-400 uppercase font-bold tracking-wider transition-colors px-1.5 py-0.5 rounded bg-zinc-800/50">CLR</button>
+            </div>
+            <div id="terminal-log"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        // --- STATE ---
+        let currentFolder = 'output';  // 'output' or 'input'
+        let terminalCollapsed = true;
+        const els = {
+            grid: document.getElementById('gallery-grid'),
+            modal: document.getElementById('gallery-modal'),
+            modalImg: document.getElementById('modal-img'),
+            dlBtn: document.getElementById('dl-btn'),
+            closeBtn: document.getElementById('close-modal'),
+            termLog: document.getElementById('terminal-log'),
+            termPanel: document.getElementById('terminal-panel')
+        };
+
+        // --- TERMINAL LOGGING ---
+        function logTerminal(msg, level = 'info') {
+            if (!els.termLog) return;
+            const line = document.createElement('div');
+            line.className = 'term-line';
+            const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
+            const colorMap = { info: '#60a5fa', success: '#4ade80', warn: '#fbbf24', error: '#f87171' };
+            line.style.color = colorMap[level] || '#a1a1aa';
+            line.textContent = `[${ts}] ${msg}`;
+            els.termLog.appendChild(line);
+            els.termLog.scrollTop = els.termLog.scrollHeight;
+        }
+
+        // --- TAB SWITCHING ---
+        function switchFolder(type) {
+            currentFolder = type;
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.className = 'tab-btn text-xs px-3 py-1 rounded uppercase font-bold transition-colors';
+            });
+            const activeBtn = type === 'output' ? document.getElementById('btn-output') : document.getElementById('btn-input');
+            if (activeBtn) activeBtn.classList.add('active', 'bg-blue-600', 'text-white', 'border', 'border-blue-500');
+            else if (type === 'input') {
+                const inputBtn = document.getElementById('btn-input');
+                if (inputBtn) inputBtn.className = 'tab-btn active text-xs px-3 py-1 rounded uppercase font-bold transition-colors bg-blue-600 text-white border border-blue-500';
+            }
+            loadGallery();
+        }
+
+        // --- LOAD GALLERY ---
+        async function loadGallery() {
+            els.grid.innerHTML = '';
+            logTerminal(`Loading ${currentFolder} folder images...`);
+            
+            try {
+                const res = await fetch(`/mini/files?type=${currentFolder}&t=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' } });
+                if (!res.ok) throw new Error(`Server error ${res.status}`);
+                
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                logTerminal(`Loaded ${data.images?.length || 0} images from ${currentFolder}`, 'success');
+
+                // Render thumbnails
+                for (const img of data.images || []) {
+                    const card = document.createElement('div');
+                    card.className = 'thumb-card';
+                    
+                    const thumbImg = document.createElement('img');
+                    thumbImg.src = `/view?filename=${encodeURIComponent(img.subfolder ? `${img.subfolder}/${img.filename}` : img.filename)}&type=${currentFolder}&t=${Date.now()}`;
+                    thumbImg.alt = img.filename;
+                    thumbImg.loading = 'lazy';
+                    
+                    const label = document.createElement('div');
+                    label.className = 'thumb-label';
+                    label.textContent = img.filename.replace(/\.[^/.]+$/, '');  // strip extension
+                    
+                    const badge = document.createElement('div');
+                    badge.className = `thumb-type-badge ${currentFolder}`;
+                    badge.textContent = currentFolder.toUpperCase();
+
+                    card.append(thumbImg, label, badge);
+                    
+                    card.addEventListener('click', () => openModal(img));
+                    els.grid.appendChild(card);
+                }
+            } catch (e) {
+                logTerminal(`Gallery load error: ${e.message}`, 'error');
+                els.grid.innerHTML = '<div class="flex items-center justify-center text-zinc-600 text-xs uppercase tracking-widest">No images found</div>';
+            }
+        }
+
+        // --- MODAL ---
+        function openModal(image) {
+            const filename = image.subfolder ? `${image.subfolder}/${image.filename}` : image.filename;
+            els.modalImg.src = `/view?filename=${encodeURIComponent(filename)}&type=${currentFolder}&t=${Date.now()}`;
+            els.dlBtn.dataset.url = `/view?filename=${encodeURIComponent(filename)}&type=${currentFolder}&t=${Date.now()}`;
+            els.dlBtn.dataset.filename = image.filename;
+            
+            // Show modal with animation
+            els.modal.classList.add('active');
+        }
+
+        function closeGalleryModal() {
+            els.modal.classList.remove('active');
+            setTimeout(() => { els.modalImg.src = ''; }, 300);
+        }
+
+        // --- DOWNLOAD ---
+        async function downloadImage() {
+            const url = els.dlBtn.dataset.url;
+            if (!url) return;
+            
+            try {
+                logTerminal(`Downloading ${els.dlBtn.dataset.filename}...`, 'info');
+                
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+                
+                const blob = await res.blob();
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = els.dlBtn.dataset.filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(a.href);
+                
+                logTerminal(`Downloaded: ${els.dlBtn.dataset.filename}`, 'success');
+            } catch (e) {
+                logTerminal(`Download error: ${e.message}`, 'error');
+                // Fallback: open in new tab
+                window.open(els.dlBtn.dataset.url, '_blank');
+            }
+        }
+
+        // --- KEYBOARD SHORTCUTS ---
+        function setupKeyboard() {
+            document.addEventListener('keydown', (e) => {
+                if (!els.modal.classList.contains('active')) return;
+                
+                if (e.key === 'Escape') {
+                    closeGalleryModal();
+                }
+            });
+            
+            // Click outside image to close
+            els.modal.addEventListener('click', (e) => {
+                if (e.target === els.modal || e.target === els.modalImg) {
+                    closeGalleryModal();
+                }
+            });
+        }
+
+        // --- TERMINAL TOGGLE ---
+        function initTerminal() {
+            const termToggle = document.getElementById('terminal-toggle');
+            if (!termToggle) return;
+            
+            termToggle.addEventListener('click', () => {
+                terminalCollapsed = !terminalCollapsed;
+                els.termPanel.style.maxHeight = terminalCollapsed ? '30px' : '200px';
+                const chev = termToggle.querySelector('.toggle-chevron svg');
+                chev.style.transform = terminalCollapsed ? '' : 'rotate(180deg)';
+            });
+
+            document.getElementById('term-clear-btn').addEventListener('click', () => {
+                if (els.termLog) els.termLog.innerHTML = '';
+            });
+        }
+
+        // --- INIT ---
+        async function init() {
+            initTerminal();
+            
+            document.getElementById('btn-output').addEventListener('click', () => switchFolder('output'));
+            document.getElementById('btn-input').addEventListener('click', () => switchFolder('input'));
+            
+            els.closeBtn.addEventListener('click', closeGalleryModal);
+            els.dlBtn.addEventListener('click', downloadImage);
+            
+            setupKeyboard();
+            
+            await loadGallery();
+        }
+
+        init().catch(e => { console.error(e); alert('Init Error: ' + e.message); });
+    </script>
+</body>
+</html>
