@@ -49,6 +49,8 @@
             <a href="/mini" class="text-zinc-500 hover:text-white transition-colors uppercase font-bold text-[10px] tracking-wider">Home</a>
             <a href="/mini/run" class="text-zinc-500 hover:text-white transition-colors uppercase font-bold text-[10px] tracking-wider">Run</a>
             <div class="w-px h-4 bg-zinc-800"></div>
+            <button id="upload-btn" class="text-xs text-zinc-500 hover:text-white px-2 py-1 rounded bg-zinc-800/60 transition-colors uppercase font-bold">UPLOAD</button>
+            <input type="file" id="upload-input" accept=".json,application/json" class="hidden">
             <button id="format-btn" class="text-xs text-zinc-500 hover:text-white px-2 py-1 rounded bg-zinc-800/60 transition-colors uppercase font-bold">FORMAT</button>
             <button id="reload-btn" class="text-xs text-zinc-500 hover:text-white px-2 py-1 rounded bg-zinc-800/60 transition-colors uppercase font-bold">RELOAD</button>
             <span id="editor-status" class="valid">VALID</span>
@@ -136,8 +138,19 @@
         // --- LOAD WORKFLOW & DATA ---
         async function loadAllData() {
             logTerminal('Loading workflow data...');
-            
-            const wfUrl = '/mini/workflow.json';
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const specificFile = urlParams.get('file');
+            let wfUrl;
+
+            if (specificFile) {
+                logTerminal(`Loading file: ${specificFile}`);
+                wfUrl = `/mini/get_workflow?filename=${encodeURIComponent(specificFile)}&t=${Date.now()}`;
+                els.headerTitle.textContent = specificFile.replace('.json', '').toUpperCase();
+            } else {
+                els.headerTitle.textContent = 'EDITOR';
+            }
+
             const wfRes = await fetch(wfUrl + '?t=' + Date.now(), { headers: { 'Cache-Control': 'no-cache' } });
             if (wfRes.ok) loadedWorkflow = await wfRes.json();
             else loadedWorkflow = {};
@@ -462,8 +475,47 @@
             });
         }
 
+        // --- WORKFLOW UPLOAD ---
+        function setupUploadBtn() {
+            const uploadBtn = document.getElementById('upload-btn');
+            const uploadInput = document.getElementById('upload-input');
+            if (!uploadBtn || !uploadInput) return;
+
+            uploadBtn.addEventListener('click', () => uploadInput.click());
+            
+            uploadInput.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                try {
+                    logTerminal(`Uploading ${file.name}...`);
+                    const res = await fetch('/mini/upload_workflow', { method: 'POST', body: formData });
+                    
+                    if (res.ok) {
+                        const data = await res.json();
+                        const filename = data.filename || file.name;
+                        
+                        // Close modal first, then reload with the new file in URL
+                        window.location.href = `/mini/editor?file=${encodeURIComponent(filename)}`;
+                    } else {
+                        logTerminal('Upload failed', 'error');
+                        alert('Upload failed: ' + (await res.text()));
+                    }
+                } catch (err) {
+                    logTerminal(`Upload error: ${err.message}`, 'error');
+                    alert(`Error uploading file: ${err.message}`);
+                } finally {
+                    uploadInput.value = '';
+                }
+            });
+        }
+
         // --- INIT ---
         async function init() {
+            setupUploadBtn();
             initTerminal();
             await loadAllData();
 
