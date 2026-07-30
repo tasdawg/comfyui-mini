@@ -57,6 +57,7 @@
     <div id="gallery-modal">
         <img id="modal-img" src="" alt="">
         <div id="modal-overlay">
+            <button id="fav-toggle-btn" class="overlay-btn"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg> <span id="fav-btn-label">ADD TO FAVORITES</span></button>
             <button id="dl-btn" class="overlay-btn primary"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg> DOWNLOAD</button>
             <button id="close-modal" class="overlay-btn"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg> CLOSE</button>
         </div>
@@ -109,6 +110,7 @@
             grid: document.getElementById('gallery-grid'),
             modal: document.getElementById('gallery-modal'),
             modalImg: document.getElementById('modal-img'),
+            favToggleBtn: document.getElementById('fav-toggle-btn'),
             dlBtn: document.getElementById('dl-btn'),
             closeBtn: document.getElementById('close-modal'),
             paginationBar: document.getElementById('pagination-bar'),
@@ -234,6 +236,14 @@
             els.modalImg.src = `/view?filename=${encodeURIComponent(image.filename)}&subfolder=${encodeURIComponent(image.subfolder || '')}&type=${currentFolder}&t=${Date.now()}`;
             els.dlBtn.dataset.url = `/view?filename=${encodeURIComponent(image.filename)}&subfolder=${encodeURIComponent(image.subfolder || '')}&type=${currentFolder}&t=${Date.now()}`;
             els.dlBtn.dataset.filename = image.filename;
+
+            const isFav = getFavorites().includes(image.filename);
+            if (els.favToggleBtn) {
+                els.favToggleBtn.innerHTML = isFav
+                    ? `<svg class="w-3.5 h-3.5" fill="currentColor" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg> <span>REMOVE FROM FAVORITES</span>`
+                    : `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg> <span>ADD TO FAVORITES</span>`;
+            }
+
             closeFavMenu();
             els.modal.classList.add('active');
         }
@@ -341,6 +351,16 @@
             els.nextBtn.addEventListener('click', () => goToPage(currentPage + 1));
             els.closeBtn.addEventListener('click', closeGalleryModal);
             els.dlBtn.addEventListener('click', downloadImage);
+            if (els.favToggleBtn) {
+                els.favToggleBtn.addEventListener('click', () => {
+                    const src = els.modalImg.src;
+                    const match = src.match(/filename=([^&]+)/);
+                    if (!match) return;
+                    const fname = decodeURIComponent(match[1]);
+                    toggleFavorite({ filename: fname });
+                    openModal(allImages.find(img => img.filename === fname) || { filename: fname, subfolder: '', type: currentFolder });
+                });
+            }
 
             if (els.btnOutput) els.btnOutput.addEventListener('click', () => switchFolder('output'));
             if (els.btnInput) els.btnInput.addEventListener('click', () => switchFolder('input'));
