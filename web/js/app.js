@@ -57,13 +57,29 @@ function populateImageSelect(selectEl, allOptions, currentFilename) {
     favHeader.className = 'text-[8px] font-bold text-zinc-500 uppercase tracking-wider px-1 py-0.5 bg-zinc-900/40';
     selectEl.appendChild(favHeader);
 
+    // Build a set of base filenames (without extensions) for cross-folder matching
+    const allBaseNames = new Set(allOptions.map(o => o.replace(/\.[^/.]+$/, '')));
+    
     for (const fav of favorites) {
-        if (!allOptions.includes(fav)) continue;
-        const oEl = document.createElement('option');
-        oEl.value = fav;
-        oEl.innerText = fav.replace(/\.[^/.]+$/, '');  // strip extension for readability
-        if (fav === currentFilename) oEl.selected = true;
-        selectEl.appendChild(oEl);
+        const favBaseName = fav.replace(/\.[^/.]+$/, '');
+        // Match by base filename (without extension) so output favorites can map to input images
+        const matchIdx = allOptions.findIndex(o => o.replace(/\.[^/.]+$/, '') === favBaseName);
+        if (matchIdx !== -1) {
+            const matchedOpt = allOptions[matchIdx];
+            console.log(`[populateImageSelect] Matched favorite "${fav}" -> "${matchedOpt}"`);
+            const oEl = document.createElement('option');
+            oEl.value = matchedOpt;
+            oEl.innerText = favBaseName;
+            if (matchedOpt === currentFilename) oEl.selected = true;
+            selectEl.appendChild(oEl);
+        } else {
+            // No match in available options — still show the favorite so user can see it's there
+            console.log(`[populateImageSelect] Favorite "${fav}" not found in options, adding as-is`);
+            const oEl = document.createElement('option');
+            oEl.value = fav;
+            oEl.innerText = favBaseName + ' (not available)';
+            selectEl.appendChild(oEl);
+        }
     }
 
     // Divider option: --- All Images ---
