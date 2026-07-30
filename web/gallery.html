@@ -196,7 +196,7 @@
                 card.className = 'thumb-card';
 
                 const thumbImg = document.createElement('img');
-                thumbImg.src = `/view?filename=${encodeURIComponent(img.subfolder ? `${img.subfolder}/${img.filename}` : img.filename)}&type=${currentFolder}&t=${Date.now()}`;
+                thumbImg.src = `/view?filename=${encodeURIComponent(img.filename)}&subfolder=${encodeURIComponent(img.subfolder || '')}&type=${currentFolder}&t=${Date.now()}`;
                 thumbImg.alt = img.filename;
                 thumbImg.loading = 'lazy';
 
@@ -255,9 +255,8 @@
 
         // --- MODAL ---
         function openModal(image) {
-            const filename = image.subfolder ? `${image.subfolder}/${image.filename}` : image.filename;
-            els.modalImg.src = `/view?filename=${encodeURIComponent(filename)}&type=${currentFolder}&t=${Date.now()}`;
-            els.dlBtn.dataset.url = `/view?filename=${encodeURIComponent(filename)}&type=${currentFolder}&t=${Date.now()}`;
+            els.modalImg.src = `/view?filename=${encodeURIComponent(image.filename)}&subfolder=${encodeURIComponent(image.subfolder || '')}&type=${currentFolder}&t=${Date.now()}`;
+            els.dlBtn.dataset.url = `/view?filename=${encodeURIComponent(image.filename)}&subfolder=${encodeURIComponent(image.subfolder || '')}&type=${currentFolder}&t=${Date.now()}`;
             els.dlBtn.dataset.filename = image.filename;
             closeFavMenu();
             els.modal.classList.add('active');
@@ -291,8 +290,7 @@
         }
 
         async function downloadImageFromGallery(image) {
-            const filename = image.subfolder ? `${image.subfolder}/${image.filename}` : image.filename;
-            const url = `/view?filename=${encodeURIComponent(filename)}&type=${currentFolder}&t=${Date.now()}`;
+            const url = `/view?filename=${encodeURIComponent(image.filename)}&subfolder=${encodeURIComponent(image.subfolder || '')}&type=${currentFolder}&t=${Date.now()}`;
 
             try {
                 const res = await fetch(url);
