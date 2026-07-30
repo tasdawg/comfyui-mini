@@ -1316,8 +1316,12 @@ async function renderControls() {
                 try {
                     const imgListRes3 = await fetch('/object_info/LoadImage');
                     if (imgListRes3.ok) {
+                        // Check for auth-protected responses that return HTML instead of JSON
+                        const ct = imgListRes3.headers.get('content-type') || '';
+                        if (!ct.includes('application/json')) throw new Error('Auth required');
                         const infoData3 = await imgListRes3.json();
                         const options3 = Array.isArray(infoData3?.LoadImage?.input?.required?.image?.[1]?.options) ? infoData3.LoadImage.input.required.image[1].options : [];
+                        if (options3.length === 0) console.warn('[app] LoadImage options empty:', JSON.stringify(infoData3).substring(0, 500));
                         populateImageSelect(selectEl3, options3, imageFilename);
                     } else {
                         // Fallback: populate with just the current filename so user has something to see
@@ -1329,7 +1333,7 @@ async function renderControls() {
                             selectEl3.appendChild(oEl);
                         }
                     }
-                } catch {}
+                } catch (e) { console.error('[app] LoadImage fetch failed:', e.message); }
 
                 selectEl3.onchange = () => {
                     originalNode.inputs[inputRef.key] = selectEl3.value;
@@ -1576,8 +1580,12 @@ async function renderControls() {
                     try {
                         const imgListRes4 = await fetch('/object_info/LoadImage');
                         if (imgListRes4.ok) {
+                            // Check for auth-protected responses that return HTML instead of JSON
+                            const ct4 = imgListRes4.headers.get('content-type') || '';
+                            if (!ct4.includes('application/json')) throw new Error('Auth required');
                             const infoData4 = await imgListRes4.json();
                             const options4 = Array.isArray(infoData4?.LoadImage?.input?.required?.image?.[1]?.options) ? infoData4.LoadImage.input.required.image[1].options : [];
+                            if (options4.length === 0) console.warn('[app] LoadImage options empty:', JSON.stringify(infoData4).substring(0, 500));
                             populateImageSelect(selectStandalone, options4, val);
                         } else {
                             if (val) {
@@ -1588,7 +1596,7 @@ async function renderControls() {
                                 selectStandalone.appendChild(oEl);
                             }
                         }
-                    } catch {}
+                    } catch (e) { console.error('[app] LoadImage fetch failed:', e.message); }
 
                     selectStandalone.onchange = () => {
                         node.inputs[key] = selectStandalone.value;

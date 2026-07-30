@@ -147,6 +147,13 @@
                 const res = await fetch(`/mini/files?type=${currentFolder}&t=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' } });
                 if (!res.ok) throw new Error(`Server error ${res.status}`);
 
+                // Check if response is actually JSON (not login page HTML)
+                const contentType = res.headers.get('content-type') || '';
+                if (!contentType.includes('application/json')) {
+                    const text = await res.text();
+                    throw new Error(text.includes('<html') ? 'Authentication required - please log in to ComfyUI first' : `Unexpected response: ${text.substring(0, 200)}`);
+                }
+
                 const data = await res.json();
                 if (data.error) throw new Error(data.error);
 
@@ -154,7 +161,8 @@
                 
                 renderPage(currentPage);
             } catch (e) {
-                els.grid.innerHTML = '<div class="flex items-center justify-center text-zinc-600 text-xs uppercase tracking-widest">No images found</div>';
+                console.error('[Gallery] Load error:', e);
+                els.grid.innerHTML = `<div class="flex items-center justify-center text-red-400 text-xs uppercase tracking-widest p-8">${e.message}</div>`;
             }
         }
 
