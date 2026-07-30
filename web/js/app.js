@@ -1320,7 +1320,14 @@ async function renderControls() {
                         const ct = imgListRes3.headers.get('content-type') || '';
                         if (!ct.includes('application/json')) throw new Error('Auth required');
                         const infoData3 = await imgListRes3.json();
-                        const options3 = Array.isArray(infoData3?.LoadImage?.input?.required?.image?.[1]?.options) ? infoData3.LoadImage.input.required.image[1].options : [];
+                        let options3 = [];
+                        const raw = infoData3?.LoadImage?.input?.required?.image;
+                        if (Array.isArray(raw)) {
+                            // ComfyUI format: [0] is the option list, [1] may be "IMAGE" type hint
+                            options3 = Array.isArray(raw[0]) ? raw[0] : [];
+                        } else if (raw && typeof raw === 'object' && Array.isArray(raw.options)) {
+                            options3 = raw.options;
+                        }
                         if (options3.length === 0) console.warn('[app] LoadImage options empty:', JSON.stringify(infoData3).substring(0, 500));
                         populateImageSelect(selectEl3, options3, imageFilename);
                     } else {
@@ -1584,7 +1591,13 @@ async function renderControls() {
                             const ct4 = imgListRes4.headers.get('content-type') || '';
                             if (!ct4.includes('application/json')) throw new Error('Auth required');
                             const infoData4 = await imgListRes4.json();
-                            const options4 = Array.isArray(infoData4?.LoadImage?.input?.required?.image?.[1]?.options) ? infoData4.LoadImage.input.required.image[1].options : [];
+                            let options4 = [];
+                            const raw4 = infoData4?.LoadImage?.input?.required?.image;
+                            if (Array.isArray(raw4)) {
+                                options4 = Array.isArray(raw4[0]) ? raw4[0] : [];
+                            } else if (raw4 && typeof raw4 === 'object' && Array.isArray(raw4.options)) {
+                                options4 = raw4.options;
+                            }
                             if (options4.length === 0) console.warn('[app] LoadImage options empty:', JSON.stringify(infoData4).substring(0, 500));
                             populateImageSelect(selectStandalone, options4, val);
                         } else {
