@@ -73,20 +73,6 @@
     <!-- Hidden Input for Image Upload -->
     <input type="file" id="image-upload-input" accept="image/*" class="hidden">
 
-    <!-- Terminal Console (Collapsible) -->
-    <div id="terminal-container">
-        <button id="terminal-toggle" aria-label="Toggle console">
-            <span class="toggle-chevron"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></span>
-        </button>
-        <div id="terminal-panel">
-            <div id="terminal-header">
-                <div class="term-title"><span class="term-dot bg-green-500" id="ws-status-dot"></span><span>CMD</span></div>
-                <button id="term-clear-btn" class="text-[9px] text-zinc-600 hover:text-zinc-400 uppercase font-bold tracking-wider transition-colors px-1.5 py-0.5 rounded bg-zinc-800/50">CLR</button>
-            </div>
-            <div id="terminal-log"></div>
-        </div>
-    </div>
-
     <div id="shared-footer"></div>
 
     <script type="module" src="/mini/js/app.js"></script>
