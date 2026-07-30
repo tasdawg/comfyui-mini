@@ -40,15 +40,14 @@
     </style>
 </head>
 <body>
-    <header class="h-9 shrink-0 flex items-center justify-between px-4 border-b border-[#1f2937] bg-[#0a0a0a] z-50">
+    <div id="shared-header"></div>
+    
+    <!-- Page-specific header content (Editor page) -->
+    <header class="h-9 shrink-0 flex items-center justify-between px-4 border-b border-[#1f2937] bg-[#0a0a0a] z-40">
         <div class="flex items-center gap-3">
-            <div id="ws-status-dot" class="w-2 h-2 rounded-full bg-red-500 shadow-sm shrink-0 transition-all duration-300"></div>
             <h1 id="header-title" class="font-semibold text-zinc-300 truncate tracking-tight uppercase">EDITOR</h1>
         </div>
         <div class="flex items-center gap-4 shrink-0">
-            <a href="/mini" class="text-zinc-500 hover:text-white transition-colors uppercase font-bold text-[10px] tracking-wider">Home</a>
-            <a href="/mini/run" class="text-zinc-500 hover:text-white transition-colors uppercase font-bold text-[10px] tracking-wider">Run</a>
-            <div class="w-px h-4 bg-zinc-800"></div>
             <button id="upload-btn" class="text-xs text-zinc-500 hover:text-white px-2 py-1 rounded bg-zinc-800/60 transition-colors uppercase font-bold">UPLOAD</button>
             <input type="file" id="upload-input" accept=".json,application/json" class="hidden">
             <button id="format-btn" class="text-xs text-zinc-500 hover:text-white px-2 py-1 rounded bg-zinc-800/60 transition-colors uppercase font-bold">FORMAT</button>
@@ -513,11 +512,46 @@
             });
         }
 
+        // --- SHARED COMPONENT LOADER ---
+        async function loadSharedComponents() {
+            try {
+                const [headerRes, footerRes] = await Promise.all([
+                    fetch('/mini/shared/header.html?t=' + Date.now()),
+                    fetch('/mini/shared/footer.html?t=' + Date.now())
+                ]);
+
+                if (headerRes.ok) {
+                    const headerEl = document.getElementById('shared-header');
+                    if (headerEl) headerEl.innerHTML = await headerRes.text();
+                    
+                    // Mobile menu toggle
+                    const mobileBtn = document.getElementById('mobile-menu-btn');
+                    const dropdown = document.getElementById('mobile-menu-dropdown');
+                    if (mobileBtn && dropdown) {
+                        mobileBtn.addEventListener('click', () => {
+                            dropdown.classList.toggle('hidden');
+                        });
+                        document.addEventListener('click', (e) => {
+                            if (!dropdown.contains(e.target) && e.target !== mobileBtn) {
+                                dropdown.classList.add('hidden');
+                            }
+                        });
+                    }
+                }
+
+                if (footerRes.ok) {
+                    const footerEl = document.getElementById('shared-footer');
+                    if (footerEl) footerEl.innerHTML = await footerRes.text();
+                }
+            } catch (e) { console.error('[Shared] Component load error:', e); }
+        }
+
         // --- INIT ---
         async function init() {
             setupUploadBtn();
             initTerminal();
             await loadAllData();
+            await loadSharedComponents();
 
             document.getElementById('json-editor').addEventListener('input', onJsonChange);
             document.getElementById('format-btn').addEventListener('click', formatJson);

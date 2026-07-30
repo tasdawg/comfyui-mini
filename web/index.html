@@ -33,22 +33,21 @@
     </style>
 </head>
 <body class="w-full flex flex-col overflow-hidden text-xs">
-    <header class="h-10 shrink-0 flex items-center justify-between px-3 border-b border-[#27272a] bg-[#09090b] z-50">
+    <div id="shared-header"></div>
+
+    <!-- Page-specific header content (Run page) -->
+    <header id="page-header" class="h-10 shrink-0 flex items-center justify-between px-3 border-b border-[#27272a] bg-[#09090b] z-40">
         <div class="flex items-center gap-2 min-w-0">
-            <div id="status-dot" class="w-2 h-2 rounded-full bg-red-500 shadow-sm shrink-0 transition-all duration-300"></div>
             <h1 id="header-title" class="font-semibold text-zinc-300 truncate tracking-tight uppercase">MINI RUNNER</h1>
         </div>
         <div class="flex items-center gap-3 shrink-0">
-            <a href="/mini" class="text-zinc-500 hover:text-white transition-colors uppercase font-bold text-[10px] tracking-wider">Home</a>
-            <a href="/mini/gallery" class="text-zinc-500 hover:text-white transition-colors uppercase font-bold text-[10px] tracking-wider">Gallery</a>
-            <div class="w-px h-4 bg-zinc-800 mx-1"></div> 
             <button id="edit-btn" class="text-zinc-500 hover:text-blue-400 p-2" title="Edit Layout"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
             <button id="save-layout-btn" class="hidden bg-green-700 hover:bg-green-600 text-white font-bold py-1 px-2 rounded text-[10px] uppercase">SAVE UI</button>
             <button id="generate-btn" class="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold py-1 px-3 rounded shadow transition-all flex items-center gap-1 text-[10px] tracking-wider uppercase">ROLL</button>
             <button id="interrupt-btn" class="hidden bg-red-600 hover:bg-red-500 active:scale-95 text-white font-bold py-1 px-3 rounded shadow transition-all flex items-center gap-1 text-[10px] tracking-wider uppercase">STOP</button>
         </div>
     </header>
-    
+
     <div id="hidden-container" class="hidden">
         <h3 class="text-xs font-bold text-zinc-500 uppercase mt-4 mb-2">Hidden Items</h3>
         <div id="hidden-list"></div>
@@ -87,6 +86,8 @@
             <div id="terminal-log"></div>
         </div>
     </div>
+
+    <div id="shared-footer"></div>
 
     <script type="module" src="/mini/js/app.js"></script>
 </body>

@@ -7,10 +7,45 @@ const els = {
     status: document.getElementById('status-msg')
 };
 
+// --- SHARED COMPONENT LOADER ---
+async function loadSharedComponents() {
+    try {
+        const [headerRes, footerRes] = await Promise.all([
+            fetch('/mini/shared/header.html?t=' + Date.now()),
+            fetch('/mini/shared/footer.html?t=' + Date.now())
+        ]);
+
+        if (headerRes.ok) {
+            const headerEl = document.getElementById('shared-header');
+            if (headerEl) headerEl.innerHTML = await headerRes.text();
+            
+            // Mobile menu toggle
+            const mobileBtn = document.getElementById('mobile-menu-btn');
+            const dropdown = document.getElementById('mobile-menu-dropdown');
+            if (mobileBtn && dropdown) {
+                mobileBtn.addEventListener('click', () => {
+                    dropdown.classList.toggle('hidden');
+                });
+                document.addEventListener('click', (e) => {
+                    if (!dropdown.contains(e.target) && e.target !== mobileBtn) {
+                        dropdown.classList.add('hidden');
+                    }
+                });
+            }
+        }
+
+        if (footerRes.ok) {
+            const footerEl = document.getElementById('shared-footer');
+            if (footerEl) footerEl.innerHTML = await footerRes.text();
+        }
+    } catch (e) { console.error('[Shared] Component load error:', e); }
+}
+
 async function init() {
     els.uploadBtn.onclick = () => els.fileInput.click();
     els.fileInput.onchange = handleUpload;
     await loadWorkflows();
+    await loadSharedComponents();
 }
 
 async function loadWorkflows() {
