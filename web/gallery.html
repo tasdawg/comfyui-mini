@@ -71,20 +71,20 @@
         let allImages = [];
         let activeFavMenuCard = null;
 
-        // --- FAVORITES (localStorage) ---
-        function getFavorites() {
-            try { return JSON.parse(localStorage.getItem('comfy_mini_favorites') || '[]'); } catch { return []; }
+        // --- FAVORITES (server-side, shared across devices) ---
+        async function getFavorites() {
+            try { const res = await fetch('/mini/load_favorites'); if (!res.ok) return []; return await res.json(); } catch { return []; }
         }
         
-        function saveFavorites(list) {
-            localStorage.setItem('comfy_mini_favorites', JSON.stringify(list));
+        async function saveFavorites(list) {
+            try { await fetch('/mini/save_favorites', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ list }) }); } catch (e) { console.error('[gallery] Save favorites failed:', e.message); }
         }
         
-        function toggleFavorite(image) {
-            const list = getFavorites();
+        async function toggleFavorite(image) {
+            const list = await getFavorites();
             const idx = list.indexOf(image.filename);
             if (idx === -1) { list.push(image.filename); } else { list.splice(idx, 1); }
-            saveFavorites(list);
+            await saveFavorites(list);
         }
 
         // --- FAVORITES MENU ---

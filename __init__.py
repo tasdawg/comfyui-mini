@@ -486,5 +486,30 @@ async def bridge_image(request):
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
 
+
+# --- FAVORITES (server-side, shared across devices via workflow library) ---
+FAVORITES_FILE = os.path.join(WEBROOT, "favorites.json")
+
+@server.PromptServer.instance.routes.get("/mini/load_favorites")
+async def load_favorites(request):
+    try:
+        if not os.path.exists(FAVORITES_FILE): return web.json_response([])
+        with open(FAVORITES_FILE, 'r', encoding='utf-8') as f: return web.json_response(json.load(f))
+    except Exception as e:
+        print(f"[ComfyMini] Error loading favorites: {e}")
+        return web.json_response([])
+
+@server.PromptServer.instance.routes.post("/mini/save_favorites")
+async def save_favorites(request):
+    try:
+        data = await request.json()
+        list_data = data.get("list", [])
+        with open(FAVORITES_FILE, 'w', encoding='utf-8') as f: json.dump(list_data, f)
+        return web.json_response({"status": "success"})
+    except Exception as e:
+        print(f"[ComfyMini] Error saving favorites: {e}")
+        return web.json_response({"error": str(e)}, status=500)
+
+
 NODE_CLASS_MAPPINGS = {}
 NODE_DISPLAY_NAME_MAPPINGS = {}

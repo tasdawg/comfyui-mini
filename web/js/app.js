@@ -42,11 +42,23 @@ let customGroups = [];          // Array of { id, title, inputs: [{nodeId, key}]
 let activeGroupId = null;       // ID of the group currently being built
 let thumbBoundInputs = new Set();  // Tracks input elements that already have thumbnail handlers bound (avoids duplicate bindings across renders)
 
-// --- FAVORITES HELPERS ---
-function getFavorites() { try { return JSON.parse(localStorage.getItem('comfy_mini_favorites') || '[]'); } catch { return []; } }
+// --- FAVORITES HELPERS (server-side) ---
+async function getFavorites() {
+    try {
+        const res = await fetch('/mini/load_favorites');
+        if (!res.ok) return [];
+        return await res.json();
+    } catch { return []; }
+}
 
-function populateImageSelect(selectEl, allOptions, currentFilename) {
-    const favorites = getFavorites();
+async function setFavorites(list) {
+    try {
+        await fetch('/mini/save_favorites', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ list }) });
+    } catch (e) { console.error('[app] Save favorites failed:', e.message); }
+}
+
+async function populateImageSelect(selectEl, allOptions, currentFilename) {
+    const favorites = await getFavorites();
     console.log(`[populateImageSelect] Favorites (${favorites.length}):`, favorites);
     console.log(`[populateImageSelect] All options (${allOptions.length}):`, allOptions.slice(0, 5));
 
@@ -1352,7 +1364,7 @@ async function renderControls() {
                             options3 = raw.options;
                         }
                         if (options3.length === 0) console.warn('[app] LoadImage options empty:', JSON.stringify(infoData3).substring(0, 500));
-                        populateImageSelect(selectEl3, options3, imageFilename);
+                        await populateImageSelect(selectEl3, options3, imageFilename);
                     } else {
                         // Fallback: populate with just the current filename so user has something to see
                         if (imageFilename) {
@@ -1367,7 +1379,8 @@ async function renderControls() {
 
                 selectEl3.onchange = async () => {
                     const selVal = selectEl3.value;
-                    if (selVal && !options3.includes(selVal) && getFavorites().includes(selVal)) {
+                    const favorites = await getFavorites();
+                    if (selVal && !options3.includes(selVal) && favorites.includes(selVal)) {
                         try {
                             console.log(`[app] Bridging favorite "${selVal}" to input folder`);
                             const bridgeRes = await fetch('/mini/bridge_image', {
@@ -1379,7 +1392,7 @@ async function renderControls() {
                                 const newFile = bridgeData.file;
                                 if (newFile) {
                                     originalNode.inputs[inputRef.key] = newFile;
-                                    populateImageSelect(selectEl3, options3, newFile);
+                                    await populateImageSelect(selectEl3, options3, newFile);
                                     renderControls(); // Refresh thumbnails
                                     return;
                                 }
@@ -1643,7 +1656,7 @@ async function renderControls() {
                                 options4 = raw4.options;
                             }
                             if (options4.length === 0) console.warn('[app] LoadImage options empty:', JSON.stringify(infoData4).substring(0, 500));
-                            populateImageSelect(selectStandalone, options4, val);
+                            await populateImageSelect(selectStandalone, options4, val);
                         } else {
                             if (val) {
                                 const oEl = document.createElement('option');
@@ -1657,7 +1670,8 @@ async function renderControls() {
 
                     selectStandalone.onchange = async () => {
                         const selVal = selectStandalone.value;
-                        if (selVal && !options4.includes(selVal) && getFavorites().includes(selVal)) {
+                        const favorites = await getFavorites();
+                        if (selVal && !options4.includes(selVal) && favorites.includes(selVal)) {
                             try {
                                 console.log(`[app] Bridging favorite "${selVal}" to input folder`);
                                 const bridgeRes = await fetch('/mini/bridge_image', {
@@ -1669,7 +1683,7 @@ async function renderControls() {
                                     const newFile = bridgeData.file;
                                     if (newFile) {
                                         node.inputs[key] = newFile;
-                                        populateImageSelect(selectStandalone, options4, newFile);
+                                        await populateImageSelect(selectStandalone, options4, newFile);
                                         renderControls(); // Refresh thumbnails
                                         return;
                                     }
