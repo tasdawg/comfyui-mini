@@ -1340,7 +1340,7 @@ async function renderControls() {
                 }
 
                 infoCard.appendChild(body);
-                nodesList.appendChild(infoCard);
+                els.controls.appendChild(infoCard);
                 continue;
             }
 
