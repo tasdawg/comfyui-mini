@@ -157,7 +157,22 @@
                 const data = await res.json();
                 if (data.error) throw new Error(data.error);
 
-                allImages = data.images || [];
+                let allImagesRaw = [];
+                // Handle both formats: {images:[...]} and {[0]:{filename:...}}
+                if (Array.isArray(data)) {
+                    allImagesRaw = data;
+                } else if (Array.isArray(data.images)) {
+                    allImagesRaw = data.images;
+                } else if (data && typeof data === 'object') {
+                    // Check for ComfyUI-style keys like "0", "1", etc.
+                    const keys = Object.keys(data).filter(k => !isNaN(parseInt(k)));
+                    if (keys.length > 0) {
+                        allImagesRaw = keys.map(k => ({ filename: data[k].filename || k, subfolder: data[k].subfolder || '', type: currentFolder }));
+                    }
+                }
+
+                console.log(`[Gallery] Loaded ${allImagesRaw.length} images for ${currentFolder}`);
+                allImages = allImagesRaw;
                 
                 renderPage(currentPage);
             } catch (e) {
