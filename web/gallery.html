@@ -199,9 +199,6 @@
                 thumbImg.src = `/view?filename=${encodeURIComponent(img.filename)}&subfolder=${encodeURIComponent(img.subfolder || '')}&type=${currentFolder}&t=${Date.now()}`;
                 thumbImg.alt = img.filename;
                 thumbImg.loading = 'lazy';
-                
-                // Debug: log URL and handle errors
-                console.log(`[Gallery] Thumb URL for ${img.filename}:`, thumbImg.src);
                 thumbImg.onerror = () => {
                     console.error(`[Gallery] Failed to load image: ${thumbImg.src}`);
                     thumbImg.style.display = 'none';
