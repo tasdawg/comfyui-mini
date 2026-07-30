@@ -81,12 +81,7 @@ async def serve_automation(request): return web.FileResponse(os.path.join(WEBROO
 
 # --- Static & Data ---
 server.PromptServer.instance.routes.static("/mini/js", path=os.path.join(WEBROOT, "js"))
-
-# Shared components (header/footer)
-@server.PromptServer.instance.routes.get("/mini/shared/header.html")
-async def serve_shared_header(request): return web.FileResponse(os.path.join(WEBROOT, "shared", "header.html"), headers={"Cache-Control": "no-cache"})
-@server.PromptServer.instance.routes.get("/mini/shared/footer.html")
-async def serve_shared_footer(request): return web.FileResponse(os.path.join(WEBROOT, "shared", "footer.html"), headers={"Cache-Control": "no-cache"})
+server.PromptServer.instance.routes.static("/mini/shared", path=os.path.join(WEBROOT, "shared"), headers={"Cache-Control": "no-cache"})
 
 @server.PromptServer.instance.routes.get("/mini/workflow.json")
 async def serve_workflow(request):
