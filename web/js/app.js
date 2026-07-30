@@ -42,6 +42,44 @@ let customGroups = [];          // Array of { id, title, inputs: [{nodeId, key}]
 let activeGroupId = null;       // ID of the group currently being built
 let thumbBoundInputs = new Set();  // Tracks input elements that already have thumbnail handlers bound (avoids duplicate bindings across renders)
 
+// --- FAVORITES HELPERS ---
+function getFavorites() { try { return JSON.parse(localStorage.getItem('comfy_mini_favorites') || '[]'); } catch { return []; } }
+
+function populateImageSelect(selectEl, allOptions, currentFilename) {
+    // Section header: ** Favorites **
+    const favHeader = document.createElement('option');
+    favHeader.disabled = true;
+    favHeader.textContent = '** Favorites **';
+    favHeader.className = 'text-[8px] font-bold text-zinc-500 uppercase tracking-wider px-1 py-0.5 bg-zinc-900/40';
+    selectEl.appendChild(favHeader);
+
+    const favorites = getFavorites();
+    for (const fav of favorites) {
+        if (!allOptions.includes(fav)) continue;
+        const oEl = document.createElement('option');
+        oEl.value = fav;
+        oEl.innerText = fav.replace(/\.[^/.]+$/, '');  // strip extension for readability
+        if (fav === currentFilename) oEl.selected = true;
+        selectEl.appendChild(oEl);
+    }
+
+    // Divider option: --- All Images ---
+    const divOpt = document.createElement('option');
+    divOpt.disabled = true;
+    divOpt.textContent = '--- All Images ---';
+    divOpt.className = 'text-[8px] font-bold text-zinc-600 uppercase tracking-wider px-1 py-0.5 bg-zinc-900/20';
+    selectEl.appendChild(divOpt);
+
+    for (const opt of allOptions) {
+        if (favorites.includes(opt)) continue;  // already shown in favorites section
+        const oEl = document.createElement('option');
+        oEl.value = opt;
+        oEl.innerText = opt.replace(/\.[^/.]+$/, '');
+        if (opt === currentFilename) oEl.selected = true;
+        selectEl.appendChild(oEl);
+    }
+}
+
     // --- TERMINAL CONSOLE ---
 function termTs() { const d = new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`; }
 
@@ -1269,7 +1307,7 @@ async function renderControls() {
                     thumbContainer.appendChild(imgEl);
                 }
 
-                // Dropdown/select for choosing image — always render so user can pick one
+                // Dropdown/select for choosing image — always render so user can pick one (with Favorites section at top)
                 const selectEl3 = document.createElement('select');
                 selectEl3.className = 'w-full input-dark rounded p-1.5 text-[10px] font-sans outline-none appearance-none cursor-pointer';
                 selectEl3.dataset.node = inputRef.nodeId;
@@ -1280,19 +1318,13 @@ async function renderControls() {
                     if (imgListRes3.ok) {
                         const infoData3 = await imgListRes3.json();
                         const options3 = Array.isArray(infoData3?.LoadImage?.input?.required?.image?.[1]?.options) ? infoData3.LoadImage.input.required.image[1].options : [];
-                        for (const opt of options3) {
-                            const oEl = document.createElement('option');
-                            oEl.value = opt;
-                            oEl.innerText = opt;
-                            if (opt === imageFilename) oEl.selected = true;
-                            selectEl3.appendChild(oEl);
-                        }
+                        populateImageSelect(selectEl3, options3, imageFilename);
                     } else {
                         // Fallback: populate with just the current filename so user has something to see
                         if (imageFilename) {
                             const oEl = document.createElement('option');
                             oEl.value = imageFilename;
-                            oEl.innerText = imageFilename;
+                            oEl.innerText = imageFilename.replace(/\.[^/.]+$/, '');
                             oEl.selected = true;
                             selectEl3.appendChild(oEl);
                         }
@@ -1501,6 +1533,71 @@ async function renderControls() {
                     if (hasTextArea) wrap.className += " shrink-0";
                     container.appendChild(wrap);
                     body.appendChild(container);
+                    continue;
+                }
+
+                // --- STANDALONE LoadImage IMAGE INPUT: render with favorites + thumbnail inline ---
+                if (isImageNode && key === 'image') {
+                    const groupImg = document.createElement('div');
+                    groupImg.className = 'space-y-1';
+
+                    let labelHtml2 = `<label class="flex items-center gap-2 text-[9px] font-medium text-zinc-500 uppercase tracking-wider">`;
+                    if (isGroupingMode && activeGroupId) {
+                        const activeGroup2 = customGroups.find(g => g.id === activeGroupId);
+                        const isChecked2 = activeGroup2 && activeGroup2.inputs.some(i => i.nodeId === item.id && i.key === key);
+                        labelHtml2 += `<input type="checkbox" class="accent-orange-500 w-3 h-3" ${isChecked2 ? 'checked' : ''} onchange="toggleInputInGroup('${activeGroupId}', '${item.id}', '${key}')">`;
+                    }
+                    labelHtml2 += `<span>${key.replace(/_/g,' ')}</span></label>`;
+                    groupImg.innerHTML = labelHtml2;
+
+                    const thumbWrap = document.createElement('div');
+                    thumbWrap.className = "flex items-center gap-2 mt-1";
+
+                    // Thumbnail preview (always render if filename exists)
+                    if (val) {
+                        const imgEl2 = document.createElement('img');
+                        imgEl2.src = `/view?filename=${encodeURIComponent(val)}&type=input&t=${Date.now()}`;
+                        imgEl2.alt = val;
+                        imgEl2.loading = 'lazy';
+                        imgEl2.decoding = 'async';
+                        imgEl2.style.cssText = `width:48px;height:48px;object-fit:cover;border-radius:6px;border:1.5px solid #3f3f46;cursor:pointer;background:#09090b;display:block;flex-shrink:0;`;
+
+                        imgEl2.onerror = () => { showImageNotFoundIndicator(item.id, val); };
+                        imgEl2.onclick = (e) => { e.stopPropagation(); openModal(`/view?filename=${encodeURIComponent(val)}&type=input&t=${Date.now()}`); };
+
+                        thumbWrap.appendChild(imgEl2);
+                    }
+
+                    // Dropdown/select for choosing image with Favorites section at top
+                    const selectStandalone = document.createElement('select');
+                    selectStandalone.className = 'w-full input-dark rounded p-1.5 text-[10px] font-sans outline-none appearance-none cursor-pointer';
+                    selectStandalone.dataset.key = key;
+
+                    try {
+                        const imgListRes4 = await fetch('/object_info/LoadImage');
+                        if (imgListRes4.ok) {
+                            const infoData4 = await imgListRes4.json();
+                            const options4 = Array.isArray(infoData4?.LoadImage?.input?.required?.image?.[1]?.options) ? infoData4.LoadImage.input.required.image[1].options : [];
+                            populateImageSelect(selectStandalone, options4, val);
+                        } else {
+                            if (val) {
+                                const oEl = document.createElement('option');
+                                oEl.value = val;
+                                oEl.innerText = val.replace(/\.[^/.]+$/, '');
+                                oEl.selected = true;
+                                selectStandalone.appendChild(oEl);
+                            }
+                        }
+                    } catch {}
+
+                    selectStandalone.onchange = () => {
+                        node.inputs[key] = selectStandalone.value;
+                        renderControls(); // Refresh thumbnails
+                    };
+
+                    thumbWrap.appendChild(selectStandalone);
+                    groupImg.appendChild(thumbWrap);
+                    body.appendChild(groupImg);
                     continue;
                 }
 
