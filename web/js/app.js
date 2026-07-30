@@ -1719,9 +1719,8 @@ async function renderControls() {
     // Bind thumbnail update to image input change events (standalone nodes)
     setupImageInputThumbnails();
     
-    // Render thumbnails inside groups and bind group image input changes
-    renderGroupThumbnails();
-    // setupGroupImageInputThumbnails() - disabled: inline thumbnails in LoadImage cells make group overlay redundant
+    // Render thumbnails inside groups - disabled: inline thumbnails in LoadImage cells make group overlay redundant
+// setupGroupImageInputThumbnails() - disabled: inline thumbnails in LoadImage cells make group overlay redundant
     
     // Load thumbnails for any LoadImage nodes that have images loaded
     setTimeout(loadNodeThumbnails, 50);
