@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comfy Mini Editor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #030712; color: #d4d4d8; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .editor-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px; flex: 1; min-height: 0; overflow: hidden; }
+        .json-panel, .run-panel { background-color: #0a0a0a; border: 1px solid #1f2937; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
+        .json-editor-wrap { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+        textarea.json-editor { width: 100%; height: 100%; background-color: #09090b; color: #a5f3fc; font-family: 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 11px; line-height: 1.6; padding: 12px; border: none; outline: none; resize: none; tab-size: 2; overflow-y: auto; }
+        textarea.json-editor::selection { background-color: rgba(59, 130, 246, 0.3); }
+        .compact-card { background-color: #121212; border: 1px solid #27272a; border-radius: 8px; display: flex; flex-direction: column; position: relative; min-height: 140px; margin-bottom: 8px; }
+        .compact-card:hover { border-color: #3f3f46; }
+        .card-body { flex: 1; overflow: hidden; min-height: 0; display: flex; flex-direction: column; gap: 0.75rem; padding-bottom: 0.5rem; }
+        .input-dark { background-color: #09090b; border: 1px solid #27272a; color: #e4e4e7; font-size: 12px; }
+        .input-dark:focus { border-color: #3b82f6; outline: none; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
+        .edit-btn { @apply p-1.5 rounded bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors; }
+
+        /* Terminal Console */
+        #terminal-container { position: fixed; bottom: 0; left: 0; right: 0; z-index: 51; padding-bottom: env(safe-area-inset-bottom, 0px); }
+        #terminal-panel { background: #09090b; border-top: 1px solid #27272a; display: flex; flex-direction: column; max-height: 220px; overflow: hidden; transition: max-height 200ms ease; }
+        #terminal-header { height: 30px; padding: 0 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #27272a; user-select: none; }
+        .term-title { font-size: 10px; font-weight: 600; color: #52525b; letter-spacing: 0.08em; text-transform: uppercase; display: flex; align-items: center; gap: 6px; }
+        .term-dot { width: 7px; height: 7px; border-radius: 50%; transition: background-color 200ms, box-shadow 200ms; }
+        #terminal-log { padding: 4px 10px; overflow-y: auto; flex: 1; min-height: 0; max-height: 190px; font-family: 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 10px; line-height: 1.6; color: #a1a1aa; }
+        .term-line { white-space: pre-wrap; word-break: break-all; padding: 0 3px; border-radius: 2px; }
+        #terminal-toggle { position: absolute; top: -18px; left: 50%; transform: translateX(-50%); width: 40px; height: 18px; border-radius: 10px 10px 0 0; background: #121212; border: 1px solid #27272a; border-bottom: none; display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; color: #52525b; transition: background 150ms, color 150ms; z-index: 52; }
+        #terminal-toggle:hover { background: #18181b; color: #a1a1aa; }
+        .toggle-chevron svg { width: 14px; height: 14px; transition: transform 200ms ease; }
+
+        /* Editor status indicator */
+        #editor-status { font-size: 10px; padding: 3px 8px; border-radius: 4px; font-weight: 600; letter-spacing: 0.05em; transition: all 200ms; }
+        #editor-status.valid { color: #4ade80; background: rgba(74, 222, 128, 0.1); }
+        #editor-status.invalid { color: #f87171; background: rgba(248, 113, 113, 0.1); }
+    </style>
+</head>
+<body>
+    <header class="h-9 shrink-0 flex items-center justify-between px-4 border-b border-[#1f2937] bg-[#0a0a0a] z-50">
+        <div class="flex items-center gap-3">
+            <div id="ws-status-dot" class="w-2 h-2 rounded-full bg-red-500 shadow-sm shrink-0 transition-all duration-300"></div>
+            <h1 id="header-title" class="font-semibold text-zinc-300 truncate tracking-tight uppercase">EDITOR</h1>
+        </div>
+        <div class="flex items-center gap-4 shrink-0">
+            <a href="/mini" class="text-zinc-500 hover:text-white transition-colors uppercase font-bold text-[10px] tracking-wider">Home</a>
+            <a href="/mini/run" class="text-zinc-500 hover:text-white transition-colors uppercase font-bold text-[10px] tracking-wider">Run</a>
+            <div class="w-px h-4 bg-zinc-800"></div>
+            <button id="format-btn" class="text-xs text-zinc-500 hover:text-white px-2 py-1 rounded bg-zinc-800/60 transition-colors uppercase font-bold">FORMAT</button>
+            <button id="reload-btn" class="text-xs text-zinc-500 hover:text-white px-2 py-1 rounded bg-zinc-800/60 transition-colors uppercase font-bold">RELOAD</button>
+            <span id="editor-status" class="valid">VALID</span>
+        </div>
+    </header>
+
+    <main class="editor-layout flex-1 min-h-0">
+        <section class="json-panel">
+            <div class="px-3 py-2 border-b border-[#1f2937] flex items-center justify-between shrink-0">
+                <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">workflow.json</span>
+                <span id="node-count" class="text-[10px] text-zinc-600"></span>
+            </div>
+            <div class="json-editor-wrap flex-1 min-h-0">
+                <textarea id="json-editor" class="json-editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+            </div>
+        </section>
+
+        <section class="run-panel">
+            <div class="px-3 py-2 border-b border-[#1f2937] flex items-center justify-between shrink-0">
+                <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">RUN STACK</span>
+                <button id="edit-toggle-btn" class="text-xs text-blue-400 hover:text-white px-2 py-1 rounded bg-blue-900/30 transition-colors uppercase font-bold">EDIT MODE</button>
+            </div>
+            <div id="editor-controls" class="flex-1 overflow-y-auto p-3 space-y-2 min-h-0"></div>
+        </section>
+    </main>
+
+    <!-- Terminal Console (Collapsible) -->
+    <div id="terminal-container">
+        <button id="terminal-toggle" aria-label="Toggle console">
+            <span class="toggle-chevron"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></span>
+        </button>
+        <div id="terminal-panel">
+            <div id="terminal-header">
+                <div class="term-title"><span class="term-dot bg-green-500" id="ws-status-dot-inner"></span><span>CMD</span></div>
+                <button id="term-clear-btn" class="text-[9px] text-zinc-600 hover:text-zinc-400 uppercase font-bold tracking-wider transition-colors px-1.5 py-0.5 rounded bg-zinc-800/50">CLR</button>
+            </div>
+            <div id="terminal-log"></div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div id="image-modal" class="fixed inset-0 z-[100] bg-black/95 backdrop-blur hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <button id="close-modal" class="absolute top-6 right-6 z-[101] bg-white/10 hover:bg-white/20 text-white rounded-full p-2 transition-colors"><svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+        <img id="modal-image" class="max-w-full max-h-full object-contain" src="" alt="Fullscreen">
+    </div>
+
+    <script type="module">
+        // --- STATE ---
+        let loadedWorkflow = {};
+        let loadedLayout = [];
+        let customGroups = [];
+        let fooocusStyles = [];
+        let objectInfo = {};
+        let isEditMode = false;
+        let terminalCollapsed = true;
+        let showGroupsOnly = false;
+        const els = {
+            jsonEditor: document.getElementById('json-editor'),
+            editorControls: document.getElementById('editor-controls'),
+            editorStatus: document.getElementById('editor-status'),
+            nodeCount: document.getElementById('node-count'),
+            headerTitle: document.getElementById('header-title'),
+            termLog: document.getElementById('terminal-log'),
+            termPanel: document.getElementById('terminal-panel')
+        };
+
+        // --- TERMINAL LOGGING ---
+        function logTerminal(msg, level = 'info') {
+            if (!els.termLog) return;
+            const line = document.createElement('div');
+            line.className = 'term-line';
+            const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
+            const colorMap = { info: '#60a5fa', success: '#4ade80', warn: '#fbbf24', error: '#f87171' };
+            line.style.color = colorMap[level] || '#a1a1aa';
+            line.textContent = `[${ts}] ${msg}`;
+            els.termLog.appendChild(line);
+            els.termLog.scrollTop = els.termLog.scrollHeight;
+        }
+
+        // --- FETCH HELPERS ---
+        async function safeFetch(url, fallback) {
+            try { const r = await fetch(url + '?t=' + Date.now()); return r.ok ? await r.json() : fallback; } catch { return fallback; }
+        }
+
+        // --- LOAD WORKFLOW & DATA ---
+        async function loadAllData() {
+            logTerminal('Loading workflow data...');
+            
+            const wfUrl = '/mini/workflow.json';
+            const wfRes = await fetch(wfUrl + '?t=' + Date.now(), { headers: { 'Cache-Control': 'no-cache' } });
+            if (wfRes.ok) loadedWorkflow = await wfRes.json();
+            else loadedWorkflow = {};
+            
+            loadedLayout = await safeFetch('/mini/layout.json', []);
+            customGroups = await safeFetch('/mini/load_groups', []);
+            fooocusStyles = await safeFetch('/mini/fooocus_styles.json', []);
+
+            try { const infoRes = await fetch('/object_info'); if (infoRes.ok) objectInfo = await infoRes.json(); } catch {}
+
+            // Sync status indicator
+            syncJsonEditorWithWorkflow();
+            renderRunStack();
+            logTerminal(`Loaded ${Object.keys(loadedWorkflow).length} nodes`, 'success');
+        }
+
+        // --- JSON EDITOR SYNC ---
+        function syncJsonEditorWithWorkflow() {
+            const filtered = { ...loadedWorkflow };
+            delete filtered._mini_origin;
+            els.jsonEditor.value = JSON.stringify(filtered, null, 2);
+            els.nodeCount.textContent = `${Object.keys(loadedWorkflow).length} nodes`;
+            setEditorStatus(true, 'VALID');
+        }
+
+        function setEditorStatus(valid, label) {
+            if (!els.editorStatus) return;
+            els.editorStatus.className = valid ? 'valid' : 'invalid';
+            els.editorStatus.textContent = label;
+        }
+
+        // --- JSON CHANGE HANDLER (DEBOUNCED) ---
+        let debounceTimer = null;
+        function onJsonChange() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                const raw = els.jsonEditor.value.trim();
+                if (!raw) return;
+                
+                try {
+                    const parsed = JSON.parse(raw);
+                    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                        loadedWorkflow = parsed;
+                        
+                        // Preserve _mini_origin if it was set before
+                        if (loadedLayout.find(l => l.id === '_mini_origin')) {} // just keep it
+                        
+                        syncJsonEditorWithWorkflow();
+                        renderRunStack();
+                        logTerminal('JSON applied: workflow updated', 'success');
+                    } else {
+                        setEditorStatus(false, 'NOT AN OBJECT');
+                        logTerminal('Parsed value is not an object', 'warn');
+                    }
+                } catch (e) {
+                    setEditorStatus(false, `PARSE ERROR`);
+                    logTerminal(`JSON parse error: ${e.message}`, 'error');
+                }
+            }, 400);
+        }
+
+        // --- RENDER RUN STACK ---
+        function renderRunStack() {
+            if (!els.editorControls) return;
+            const controls = els.editorControls;
+            controls.innerHTML = '';
+
+            const displayList = getSortedNodes();
+            
+            for (let index = 0; index < displayList.length; index++) {
+                const item = displayList[index];
+                const node = loadedWorkflow[item.id];
+                if (!node || !node.class_type) continue;
+                if (!item.visible && !isEditMode) continue;
+
+                // Skip nodes in groups when not showing groups-only
+                if (customGroups.length > 0 && !showGroupsOnly && isNodeInGroup(item.id)) continue;
+
+                const def = objectInfo[node.class_type] || await getObjectInfo(node.class_type);
+
+                let validInputs = [];
+                if (node.inputs) {
+                    for (const [key, val] of Object.entries(node.inputs)) {
+                        if (Array.isArray(val) || (typeof val === 'object' && val !== null && !val.__value__)) continue;
+                        const isString = typeof val === 'string' && (val.length > 40 || key === 'text');
+                        let isDropdown = false;
+                        let inputDef = def?.input?.required?.[key] || def?.input?.optional?.[key];
+                        if (inputDef && Array.isArray(inputDef)) {
+                            if ((inputDef[0] === "COMBO" && inputDef[1]?.options) || 
+                                (inputDef.every(i => typeof i === 'string') && inputDef.length > 2 && !["STRING", "INT"].includes(inputDef[0]))) {
+                                isDropdown = true;
+                            }
+                        }
+                        if (isString && !isDropdown) continue; // skip long strings in editor
+                        validInputs.push({ key, val, isTextArea: false, isDropdown });
+                    }
+                }
+                if (validInputs.length === 0) continue;
+
+                const card = document.createElement('div');
+                card.dataset.id = item.id;
+                card.className = 'compact-card relative';
+                const visibilityStyle = (!item.visible && isEditMode) ? 'opacity-40 grayscale' : '';
+                card.style.height = (item.height && item.height !== 'auto') ? `${item.height}px` : 'auto';
+
+                // Header
+                const header = document.createElement('div');
+                header.className = 'px-3 py-1.5 bg-white/5 border-b border-[#27272a] flex justify-between items-center shrink-0';
+                const title = node._meta?.title || node.class_type;
+                const titleDiv = document.createElement('div');
+                titleDiv.className = 'flex items-center gap-1';
+                titleDiv.innerHTML = `<span class="text-[11px] font-bold text-zinc-300 uppercase tracking-wider truncate">${(!item.visible && isEditMode) ? '(HIDDEN) ' : ''}${title}</span>`;
+
+                // Upload button for LoadImage/LoadImageMask
+                if (node.class_type === "LoadImage" || node.class_type === "LoadImageMask") {
+                    const uploadBtn = document.createElement('button');
+                    uploadBtn.className = 'text-zinc-500 hover:text-blue-400 transition-colors';
+                    uploadBtn.title = 'Upload Image';
+                    uploadBtn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>`;
+                    uploadBtn.onclick = () => { triggerImageUpload(item.id, 'image', card); };
+                    titleDiv.appendChild(uploadBtn);
+                }
+
+                // Edit mode controls
+                if (isEditMode) {
+                    const ctrls = document.createElement('div');
+                    ctrls.className = 'flex gap-1 shrink-0';
+                    ctrls.innerHTML = `<button class="edit-btn" onclick="window.moveNode(${index}, -1)">▲</button><button class="edit-btn" onclick="window.moveNode(${index}, 1)">▼</button><button class="edit-btn ${item.visible ? 'text-red-400' : 'text-green-400'}" onclick="window.setVisibility('${item.id}', ${!item.visible})">${item.visible ? 'Hide' : 'Show'}</button>`;
+                    header.appendChild(ctrls);
+                }
+                header.appendChild(titleDiv);
+
+                // Body with inputs
+                const body = document.createElement('div');
+                body.className = 'p-3 space-y-2 flex-1 overflow-y-auto';
+
+                for (const { key, val, isDropdown } of validInputs) {
+                    const wrap = document.createElement('div');
+                    wrap.className = 'space-y-0.5';
+                    
+                    const label = document.createElement('label');
+                    label.className = 'flex items-center gap-2 text-[10px] font-medium text-zinc-500 uppercase tracking-wider';
+                    label.textContent = key.replace(/_/g, ' ');
+                    wrap.appendChild(label);
+
+                    if (isDropdown) {
+                        const inputDef = def?.input?.required?.[key] || def?.input?.optional?.[key];
+                        const options = inputDef[1]?.options || [];
+                        const select = document.createElement('select');
+                        select.className = 'w-full input-dark rounded p-1.5 text-[10px] font-sans outline-none';
+                        for (const opt of options) {
+                            const o = document.createElement('option');
+                            o.value = opt; o.textContent = opt;
+                            if (opt === val) o.selected = true;
+                            select.appendChild(o);
+                        }
+                        select.addEventListener('change', () => { node.inputs[key] = select.value; onJsonChange(); });
+                        wrap.appendChild(select);
+                    } else {
+                        const input = document.createElement('input');
+                        input.type = typeof val === 'number' ? 'number' : 'text';
+                        input.className = 'w-full input-dark rounded p-1.5 text-[10px] font-sans outline-none';
+                        input.value = val;
+                        if (typeof val === 'number') input.step = 'any';
+                        input.addEventListener('change', () => { 
+                            let v = input.value;
+                            if (typeof val === 'number') v = Number(v);
+                            node.inputs[key] = v;
+                            onJsonChange();
+                        });
+                        wrap.appendChild(input);
+                    }
+
+                    body.appendChild(wrap);
+                }
+
+                card.appendChild(header);
+                card.appendChild(body);
+                controls.appendChild(card);
+            }
+
+            // Render group cards if any exist (simplified)
+            for (const group of customGroups) {
+                const gCard = document.createElement('div');
+                gCard.dataset.groupId = group.id;
+                gCard.className = 'compact-card relative z-10 mb-4 flex flex-col overflow-hidden min-h-[120px] border-2 border-orange-500';
+                
+                const gHeader = document.createElement('div');
+                gHeader.className = 'px-3 py-1.5 bg-orange-900/20 border-b border-orange-500/30 flex justify-between items-center shrink-0';
+                gHeader.innerHTML = `<span class="text-[10px] font-bold text-orange-200 uppercase tracking-wider">★ ${group.title}</span>`;
+                
+                const gBody = document.createElement('div');
+                gBody.className = 'p-3 space-y-2 flex-1 overflow-y-auto';
+
+                for (const inputRef of group.inputs) {
+                    const gn = loadedWorkflow[inputRef.nodeId];
+                    if (!gn || !gn.class_type) continue;
+                    
+                    const val = gn.inputs?.[inputRef.key];
+                    if (val === undefined || val === null) continue;
+                    if (typeof val !== 'string' && typeof val !== 'number') continue;
+
+                    const wrap = document.createElement('div');
+                    wrap.className = 'space-y-0.5';
+                    
+                    const label = document.createElement('label');
+                    label.className = 'flex items-center gap-2 text-[10px] font-medium text-zinc-500 uppercase tracking-wider';
+                    label.textContent = `${inputRef.nodeId}:${inputRef.key}`;
+                    wrap.appendChild(label);
+
+                    const input = document.createElement('input');
+                    input.type = typeof val === 'number' ? 'number' : 'text';
+                    input.className = 'w-full input-dark rounded p-1.5 text-[10px] font-sans outline-none';
+                    input.value = val;
+                    if (typeof val === 'number') input.step = 'any';
+                    input.addEventListener('change', () => { 
+                        gn.inputs[inputRef.key] = typeof val === 'number' ? Number(input.value) : input.value;
+                        onJsonChange();
+                    });
+                    wrap.appendChild(input);
+
+                    gBody.appendChild(wrap);
+                }
+
+                gCard.appendChild(gHeader);
+                gCard.appendChild(gBody);
+                controls.appendChild(gCard);
+            }
+        }
+
+        // --- GROUP HELPERS ---
+        function isNodeInGroup(nodeId) {
+            return customGroups.some(g => g.inputs.some(i => i.nodeId === nodeId));
+        }
+
+        function getSortedNodes() {
+            let nodeIds = Object.keys(loadedWorkflow);
+            let displayList = [];
+            
+            loadedLayout.forEach(item => {
+                const matchId = nodeIds.find(id => String(id) === String(item.id));
+                if (matchId) {
+                    displayList.push({ id: matchId, visible: item.visible !== false, height: item.height || 'auto' });
+                    nodeIds = nodeIds.filter(id => id !== matchId);
+                }
+            });
+            
+            for (const id of nodeIds) displayList.push({ id, visible: true, height: 'auto' });
+            return displayList;
+        }
+
+        async function getObjectInfo(type) {
+            if (objectInfo[type]) return objectInfo[type];
+            try { const r = await fetch('/object_info'); if (r.ok) objectInfo = await r.json(); } catch {}
+            return objectInfo[type] || {};
+        }
+
+        // --- IMAGE UPLOAD ---
+        function triggerImageUpload(nodeId, inputKey, card) {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file'; fileInput.accept = 'image/*';
+            fileInput.onchange = async (e) => {
+                const file = e.target.files[0]; if (!file) return;
+                const formData = new FormData(); formData.append('image', file); formData.append('overwrite', 'true');
+                
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', '/upload/image', true);
+                xhr.onload = () => {
+                    if (xhr.status === 200) {
+                        const data = JSON.parse(xhr.responseText);
+                        loadedWorkflow[nodeId].inputs[inputKey] = data.name;
+                        syncJsonEditorWithWorkflow();
+                        renderRunStack();
+                        logTerminal(`Uploaded: ${data.name}`, 'success');
+                    } else alert('Upload Failed');
+                };
+                xhr.send(formData);
+            };
+            fileInput.click();
+        }
+
+        // --- EDIT MODE TOGGLE ---
+        function toggleEditMode() {
+            isEditMode = !isEditMode;
+            const btn = document.getElementById('edit-toggle-btn');
+            if (btn) {
+                btn.className = isEditMode 
+                    ? 'text-xs text-red-400 hover:text-white px-2 py-1 rounded bg-red-900/30 transition-colors uppercase font-bold'
+                    : 'text-xs text-blue-400 hover:text-white px-2 py-1 rounded bg-blue-900/30 transition-colors uppercase font-bold';
+                btn.textContent = isEditMode ? 'LIVE MODE' : 'EDIT MODE';
+            }
+            renderRunStack();
+        }
+
+        // --- FORMAT BUTTON ---
+        function formatJson() {
+            const raw = els.jsonEditor.value.trim();
+            if (!raw) return;
+            try {
+                const parsed = JSON.parse(raw);
+                els.jsonEditor.value = JSON.stringify(parsed, null, 2);
+                setEditorStatus(true, 'VALID');
+            } catch (e) {
+                logTerminal(`Format error: ${e.message}`, 'error');
+            }
+        }
+
+        // --- TERMINAL TOGGLE ---
+        function initTerminal() {
+            const termToggle = document.getElementById('terminal-toggle');
+            if (!termToggle) return;
+            
+            termToggle.addEventListener('click', () => {
+                terminalCollapsed = !terminalCollapsed;
+                els.termPanel.style.maxHeight = terminalCollapsed ? '30px' : '220px';
+                const chev = termToggle.querySelector('.toggle-chevron svg');
+                chev.style.transform = terminalCollapsed ? '' : 'rotate(180deg)';
+            });
+
+            document.getElementById('term-clear-btn').addEventListener('click', () => {
+                if (els.termLog) els.termLog.innerHTML = '';
+            });
+        }
+
+        // --- INIT ---
+        async function init() {
+            initTerminal();
+            await loadAllData();
+
+            document.getElementById('json-editor').addEventListener('input', onJsonChange);
+            document.getElementById('format-btn').addEventListener('click', formatJson);
+            document.getElementById('reload-btn').addEventListener('click', () => location.reload());
+            document.getElementById('edit-toggle-btn').addEventListener('click', toggleEditMode);
+
+            // WebSocket connection for live status (optional)
+            try { connectWS(); } catch {}
+        }
+
+        init().catch(e => { console.error(e); alert('Init Error: ' + e.message); });
+
+        // Expose window functions
+        window.moveNode = (index, direction) => {
+            const list = getSortedNodes();
+            if (index < 0 || index >= list.length) return;
+            const newIndex = index + direction;
+            if (newIndex < 0 || newIndex >= list.length) return;
+            [list[index], list[newIndex]] = [list[newIndex], list[index]];
+            loadedLayout = [];
+            for (const item of list) {
+                const existing = loadedLayout.find(l => l.id === item.id);
+                if (existing) loadedLayout.push(existing); else loadedLayout.push({ id: item.id, visible: item.visible, height: 'auto' });
+            }
+            renderRunStack();
+        };
+
+        window.setVisibility = (id, visible) => {
+            const layoutItem = loadedLayout.find(l => String(l.id) === String(id));
+            if (layoutItem) layoutItem.visible = visible;
+            else loadedLayout.push({ id, visible });
+            renderRunStack();
+        };
+    </script>
+</body>
+</html>
