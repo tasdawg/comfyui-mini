@@ -81,7 +81,7 @@ async def serve_automation(request): return web.FileResponse(os.path.join(WEBROO
 
 # --- Static & Data ---
 server.PromptServer.instance.routes.static("/mini/js", path=os.path.join(WEBROOT, "js"))
-server.PromptServer.instance.routes.static("/mini/shared", path=os.path.join(WEBROOT, "shared"), headers={"Cache-Control": "no-cache"})
+server.PromptServer.instance.routes.static("/mini/shared", path=os.path.join(WEBROOT, "shared"))
 
 @server.PromptServer.instance.routes.get("/mini/workflow.json")
 async def serve_workflow(request):
