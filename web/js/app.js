@@ -1393,11 +1393,10 @@ async function renderControls() {
             const body = document.createElement('div');
             body.className = hasTextArea ? 'p-3 flex flex-col flex-1 overflow-y-auto custom-scrollbar gap-2' : 'p-3 space-y-3 flex-1 overflow-y-auto custom-scrollbar';
 
-            // For LoadImage/LoadImageMask, skip the 'image' key in normal input rendering — it gets a dedicated thumbnail cell instead.
+            // For LoadImage/LoadImageMask, the image input renders as a dropdown + thumbnail cell below.
             const isImageNode = (node.class_type === "LoadImage" || node.class_type === "LoadImageMask");
 
             for (const { key, val, isTextArea } of validInputs) {
-                if (isImageNode && key === 'image') continue;
 
                 if (node.class_type === 'easy stylesSelector' && key === 'select_styles') {
                     // ... (Styles logic kept same) ...
