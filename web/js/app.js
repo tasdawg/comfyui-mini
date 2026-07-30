@@ -46,14 +46,17 @@ let thumbBoundInputs = new Set();  // Tracks input elements that already have th
 function getFavorites() { try { return JSON.parse(localStorage.getItem('comfy_mini_favorites') || '[]'); } catch { return []; } }
 
 function populateImageSelect(selectEl, allOptions, currentFilename) {
+    const favorites = getFavorites();
+    console.log(`[populateImageSelect] Favorites (${favorites.length}):`, favorites);
+    console.log(`[populateImageSelect] All options (${allOptions.length}):`, allOptions.slice(0, 5));
+
     // Section header: ** Favorites **
     const favHeader = document.createElement('option');
     favHeader.disabled = true;
-    favHeader.textContent = '** Favorites **';
+    favHeader.textContent = '** Favorites **' + (favorites.length > 0 ? ` (${favorites.length})` : ' (none)');
     favHeader.className = 'text-[8px] font-bold text-zinc-500 uppercase tracking-wider px-1 py-0.5 bg-zinc-900/40';
     selectEl.appendChild(favHeader);
 
-    const favorites = getFavorites();
     for (const fav of favorites) {
         if (!allOptions.includes(fav)) continue;
         const oEl = document.createElement('option');
