@@ -57,15 +57,13 @@ function populateImageSelect(selectEl, allOptions, currentFilename) {
     favHeader.className = 'text-[8px] font-bold text-zinc-500 uppercase tracking-wider px-1 py-0.5 bg-zinc-900/40';
     selectEl.appendChild(favHeader);
 
-    // Build a set of base filenames (without extensions) for cross-folder matching
     const allBaseNames = new Set(allOptions.map(o => o.replace(/\.[^/.]+$/, '')));
-    
+
     for (const fav of favorites) {
         const favBaseName = fav.replace(/\.[^/.]+$/, '');
-        // Match by base filename (without extension) so output favorites can map to input images
-        const matchIdx = allOptions.findIndex(o => o.replace(/\.[^/.]+$/, '') === favBaseName);
-        if (matchIdx !== -1) {
-            const matchedOpt = allOptions[matchIdx];
+        // Try exact match first, then base-name cross-folder match
+        let matchedOpt = allOptions.find(o => o === fav || o.replace(/\.[^/.]+$/, '') === favBaseName);
+        if (matchedOpt !== undefined) {
             console.log(`[populateImageSelect] Matched favorite "${fav}" -> "${matchedOpt}"`);
             const oEl = document.createElement('option');
             oEl.value = matchedOpt;
@@ -73,11 +71,13 @@ function populateImageSelect(selectEl, allOptions, currentFilename) {
             if (matchedOpt === currentFilename) oEl.selected = true;
             selectEl.appendChild(oEl);
         } else {
-            // No match in available options — still show the favorite so user can see it's there
-            console.log(`[populateImageSelect] Favorite "${fav}" not found in options, adding as-is`);
+            // Output image not in input folder — inject a hidden option that bridges via /mini/bridge_image
+            console.log(`[populateImageSelect] Favorite "${fav}" bridged from output to input`);
             const oEl = document.createElement('option');
             oEl.value = fav;
-            oEl.innerText = favBaseName + ' (not available)';
+            oEl.innerText = '** ' + favBaseName + ' (favorites) **';
+            oEl.style.fontStyle = 'italic';
+            oEl.style.color = '#fbbf24';
             selectEl.appendChild(oEl);
         }
     }
@@ -1361,8 +1361,28 @@ async function renderControls() {
                     }
                 } catch (e) { console.error('[app] LoadImage fetch failed:', e.message); }
 
-                selectEl3.onchange = () => {
-                    originalNode.inputs[inputRef.key] = selectEl3.value;
+                selectEl3.onchange = async () => {
+                    const selVal = selectEl3.value;
+                    if (selVal && !options3.includes(selVal) && getFavorites().includes(selVal)) {
+                        try {
+                            console.log(`[app] Bridging favorite "${selVal}" to input folder`);
+                            const bridgeRes = await fetch('/mini/bridge_image', {
+                                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ filename: selVal, type: "output" })
+                            });
+                            if (bridgeRes.ok) {
+                                const bridgeData = await bridgeRes.json();
+                                const newFile = bridgeData.file;
+                                if (newFile) {
+                                    originalNode.inputs[inputRef.key] = newFile;
+                                    populateImageSelect(selectEl3, options3, newFile);
+                                    renderControls(); // Refresh thumbnails
+                                    return;
+                                }
+                            } else { console.error('[app] Bridge failed:', bridgeRes.status); }
+                        } catch (e) { console.error('[app] Bridge error:', e.message); }
+                    }
+                    originalNode.inputs[inputRef.key] = selVal;
                     renderControls(); // Refresh thumbnails
                 };
 
@@ -1630,8 +1650,28 @@ async function renderControls() {
                         }
                     } catch (e) { console.error('[app] LoadImage fetch failed:', e.message); }
 
-                    selectStandalone.onchange = () => {
-                        node.inputs[key] = selectStandalone.value;
+                    selectStandalone.onchange = async () => {
+                        const selVal = selectStandalone.value;
+                        if (selVal && !options4.includes(selVal) && getFavorites().includes(selVal)) {
+                            try {
+                                console.log(`[app] Bridging favorite "${selVal}" to input folder`);
+                                const bridgeRes = await fetch('/mini/bridge_image', {
+                                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ filename: selVal, type: "output" })
+                                });
+                                if (bridgeRes.ok) {
+                                    const bridgeData = await bridgeRes.json();
+                                    const newFile = bridgeData.file;
+                                    if (newFile) {
+                                        node.inputs[key] = newFile;
+                                        populateImageSelect(selectStandalone, options4, newFile);
+                                        renderControls(); // Refresh thumbnails
+                                        return;
+                                    }
+                                } else { console.error('[app] Bridge failed:', bridgeRes.status); }
+                            } catch (e) { console.error('[app] Bridge error:', e.message); }
+                        }
+                        node.inputs[key] = selVal;
                         renderControls(); // Refresh thumbnails
                     };
 
