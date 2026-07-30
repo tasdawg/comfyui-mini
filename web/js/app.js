@@ -60,23 +60,23 @@ function logTerminal(msg, level) {
 function renderImageThumbnail(nodeId, filename) {
     if (!filename || !els.result) return null;
 
-    const thumbContainer = document.createElement('div');
-    thumbContainer.className = "absolute top-3 left-3 z-20 image-thumb-container";
+    const container = document.createElement('div');
+    container.className = "image-thumb-container flex items-center gap-2";
 
     const img = document.createElement('img');
     img.src = `/view?filename=${encodeURIComponent(filename)}&type=input&t=${Date.now()}`;
     img.alt = filename;
     img.loading = 'lazy';
     img.decoding = 'async';
-    img.style.cssText = `width:48px;height:48px;object-fit:cover;border-radius:6px;border:1.5px solid #3f3f46;cursor:pointer;background:#09090b;display:block;`;
+    img.style.cssText = `width:48px;height:48px;object-fit:cover;border-radius:6px;border:1.5px solid #3f3f46;cursor:pointer;background:#09090b;display:block;flex-shrink:0;`;
 
     img.onerror = () => {
-        thumbContainer.style.display = 'none';
+        container.style.display = 'none';
         showImageNotFoundIndicator(nodeId, filename);
     };
 
     img.onload = () => {
-        if (thumbContainer.classList.contains('image-thumb-container')) {
+        if (container.classList.contains('image-thumb-container')) {
             console.log(`[Thumb] Loaded: ${filename}`);
         }
         hideImageNotFoundIndicator(nodeId);
@@ -87,8 +87,8 @@ function renderImageThumbnail(nodeId, filename) {
         openModal(`/view?filename=${encodeURIComponent(filename)}&type=input&t=${Date.now()}`);
     };
 
-    thumbContainer.appendChild(img);
-    return thumbContainer;
+    container.appendChild(img);
+    return container;
 }
 
 function showImageNotFoundIndicator(nodeId, filename) {
@@ -140,10 +140,12 @@ function updateNodeThumbnail(card, nodeId, filename) {
     if (!filename || !els.result) return;
     if (card.dataset.classType === "LoadImage" || card.dataset.classType === "LoadImageMask") {
         hideImageNotFoundIndicator(nodeId);
-        const container = renderImageThumbnail(nodeId, filename);
-        if (container) {
-            container.classList.add('image-thumb-container');
-            card.appendChild(container);
+        const thumbContainer = renderImageThumbnail(nodeId, filename);
+        if (thumbContainer) {
+            const thumbCell = document.createElement('div');
+            thumbCell.className = 'px-3 py-2 border-t border-[#27272a] bg-white/[0.02] flex items-center justify-end';
+            thumbCell.appendChild(thumbContainer);
+            card.insertBefore(thumbCell, card.firstChild.nextSibling);
         }
     }
 }
@@ -1391,7 +1393,12 @@ async function renderControls() {
             const body = document.createElement('div');
             body.className = hasTextArea ? 'p-3 flex flex-col flex-1 overflow-y-auto custom-scrollbar gap-2' : 'p-3 space-y-3 flex-1 overflow-y-auto custom-scrollbar';
 
+            // For LoadImage/LoadImageMask, skip the 'image' key in normal input rendering — it gets a dedicated thumbnail cell instead.
+            const isImageNode = (node.class_type === "LoadImage" || node.class_type === "LoadImageMask");
+
             for (const { key, val, isTextArea } of validInputs) {
+                if (isImageNode && key === 'image') continue;
+
                 if (node.class_type === 'easy stylesSelector' && key === 'select_styles') {
                     // ... (Styles logic kept same) ...
                     const container = document.createElement('div');
