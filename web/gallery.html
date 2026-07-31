@@ -19,7 +19,10 @@
         /* Fullscreen Modal */
         #gallery-modal { position: fixed; inset: 0; z-index: 100; background: rgba(3,7,18,0.96); backdrop-filter: blur(4px); display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; transition: opacity 250ms; pointer-events: none; }
         #gallery-modal.active { opacity: 1; pointer-events: auto; }
-        #modal-img-wrap { position: relative; max-width: 92vw; max-height: 86vh; display: flex; align-items: center; justify-content: center; overflow: hidden; user-select: none; -webkit-user-select: none; touch-action: none; }
+        #modal-img-wrap { position: relative; max-width: 92vw; max-height: 86vh; display: flex; align-items: center; justify-content: center; overflow: hidden; user-select: none; -webkit-user-select: none; }
+        #modal-spinner { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 32px; height: 32px; border: 3px solid rgba(63,63,70,0.4); border-top-color: #60a5fa; border-radius: 50%; animation: modal-spin 800ms linear infinite; opacity: 0; transition: opacity 200ms; pointer-events: none; }
+        #modal-spinner.show { opacity: 1; }
+        @keyframes modal-spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
         #modal-img { max-width: 92vw; max-height: 86vh; object-fit: contain; border-radius: 4px; box-shadow: 0 16px 48px rgba(0,0,0,0.7); transition: transform 150ms ease-out; will-change: transform; }
         #modal-overlay { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 101; display: flex; gap: 8px; background: rgba(9,9,11,0.92); border: 1px solid #27272a; border-radius: 10px; padding: 8px 14px; backdrop-filter: blur(6px); box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
         .overlay-btn { display: flex; align-items: center; gap: 6px; background: #1f2937; color: #e4e4e7; border: none; border-radius: 6px; padding: 6px 12px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; transition: background 150ms, color 150ms; }
@@ -59,6 +62,7 @@
     <!-- Fullscreen Modal -->
     <div id="gallery-modal">
         <div id="modal-img-wrap">
+            <div id="modal-spinner"></div>
             <img id="modal-img" src="" alt="">
         </div>
         <div id="modal-overlay">
@@ -119,6 +123,7 @@
             grid: document.getElementById('gallery-grid'),
             modal: document.getElementById('gallery-modal'),
             modalImgWrap: document.getElementById('modal-img-wrap'),
+            modalSpinner: document.getElementById('modal-spinner'),
             modalImg: document.getElementById('modal-img'),
             favToggleBtn: document.getElementById('fav-toggle-btn'),
             dlBtn: document.getElementById('dl-btn'),
@@ -132,17 +137,12 @@
             nextBtn: document.getElementById('next-btn')
         };
 
-        // --- ZOOM STATE (pinch-to-zoom + pan in modal) ---
+        // --- ZOOM STATE (double-tap + wheel zoom) ---
         const MAX_ZOOM = 6;
         const MIN_ZOOM = 1;
         let zoomScale = 1;
         let zoomTx = 0;
         let zoomTy = 0;
-        let isPanning = false;
-        let lastPanX = 0, lastPanY = 0;
-        let pinchStartDist = 0;
-        let pinchStartScale = 1;
-        let pinchStartTx = 0, pinchStartTy = 0;
         let lastTapTime = 0;
 
         function applyTransform() {
@@ -194,88 +194,25 @@
             showZoomBadge(zoomScale.toFixed(1) + 'x');
         }
 
-        function touchDist(e) {
-            if (e.touches && e.touches.length >= 2) {
-                const dx = e.touches[0].clientX - e.touches[1].clientX;
-                const dy = e.touches[0].clientY - e.touches[1].clientY;
-                return Math.sqrt(dx * dx + dy * dy);
-            }
-            return 0;
-        }
+        function resetZoom() { setZoom(1, undefined, undefined); }
 
-        function touchCenter(e) {
-            if (e.touches && e.touches.length >= 2) {
-                return {
-                    x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
-                    y: (e.touches[0].clientY + e.touches[1].clientY) / 2
-                };
-            }
-            if (e.touches && e.touches.length === 1) {
-                return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-            }
-            return null;
-        }
-
-        // --- PINCH / PAN HANDLERS on modal image wrap ---
-        function setupGestures() {
+        // --- DOUBLE-TAP ZOOM on modal image (click-based, mobile-friendly) ---
+        function setupDoubleTapZoom() {
             const wrap = els.modalImgWrap;
             if (!wrap) return;
-
-            wrap.addEventListener('touchstart', (e) => {
+            wrap.addEventListener('click', (e) => {
                 if (!els.modal.classList.contains('active')) return;
-                if (e.touches.length === 2) {
-                    e.preventDefault();
-                    pinchStartDist = touchDist(e);
-                    pinchStartScale = zoomScale;
-                    pinchStartTx = zoomTx;
-                    pinchStartTy = zoomTy;
-                } else if (e.touches.length === 1 && zoomScale > 1) {
-                    isPanning = true;
-                    lastPanX = e.touches[0].clientX - zoomTx;
-                    lastPanY = e.touches[0].clientY - zoomTy;
+                if (e.target === els.closeBtn || e.target.closest('#modal-overlay')) return;
+                const now = Date.now();
+                if (now - lastTapTime < 320) {
+                    lastTapTime = 0;
+                    if (zoomScale > 1) resetZoom();
+                    else setZoom(2.5, e.clientX, e.clientY);
+                } else {
+                    lastTapTime = now;
                 }
-            }, { passive: false });
-
-            wrap.addEventListener('touchmove', (e) => {
-                if (!els.modal.classList.contains('active')) return;
-                if (e.touches.length === 2 && pinchStartDist > 0) {
-                    e.preventDefault();
-                    const dist = touchDist(e);
-                    const ratio = dist / pinchStartDist;
-                    const newScale = pinchStartScale * ratio;
-                    const center = touchCenter(e);
-                    if (center) setZoom(newScale, center.x, center.y);
-                } else if (e.touches.length === 1 && isPanning && zoomScale > 1) {
-                    e.preventDefault();
-                    zoomTx = e.touches[0].clientX - lastPanX;
-                    zoomTy = e.touches[0].clientY - lastPanY;
-                    clampPan();
-                    applyTransform();
-                }
-            }, { passive: false });
-
-            wrap.addEventListener('touchend', (e) => {
-                if (!els.modal.classList.contains('active')) return;
-                pinchStartDist = 0;
-                if (e.touches.length < 2) isPanning = false;
-                // Double-tap detection on single touch
-                if (e.changedTouches.length === 1 && e.touches.length === 1) {
-                    const now = Date.now();
-                    const t = e.changedTouches[0];
-                    if (now - lastTapTime < 320) {
-                        lastTapTime = 0;
-                        if (zoomScale > 1) { setZoom(1, t.clientX, t.clientY); }
-                        else { setZoom(Math.min(MAX_ZOOM, zoomScale * 2.5), t.clientX, t.clientY); }
-                    } else {
-                        lastTapTime = now;
-                    }
-                }
-            }, false);
-
-            wrap.addEventListener('touchcancel', () => { pinchStartDist = 0; isPanning = false; });
+            });
         }
-
-        function resetZoom() { setZoom(1, undefined, undefined); }
 
         // --- WHEEL ZOOM on desktop ---
         function setupWheelZoom() {
@@ -407,6 +344,11 @@
             els.dlBtn.dataset.url = `/view?filename=${encodeURIComponent(image.filename)}&subfolder=${encodeURIComponent(image.subfolder || '')}&type=${currentFolder}&t=${Date.now()}`;
             els.dlBtn.dataset.filename = image.filename;
 
+            if (els.modalSpinner) els.modalSpinner.classList.add('show');
+            els.modalImg.onload = () => {
+                if (els.modalSpinner) els.modalSpinner.classList.remove('show');
+            };
+
             const isFav = getFavorites().includes(image.filename);
             if (els.favToggleBtn) {
                 els.favToggleBtn.innerHTML = isFav
@@ -419,6 +361,7 @@
         }
 
         function closeGalleryModal() {
+            if (els.modalSpinner) els.modalSpinner.classList.remove('show');
             els.modal.classList.remove('active');
             setTimeout(() => { els.modalImg.src = ''; }, 300);
         }
@@ -543,7 +486,7 @@
             if (els.btnOutput) els.btnOutput.addEventListener('click', () => switchFolder('output'));
             if (els.btnInput) els.btnInput.addEventListener('click', () => switchFolder('input'));
 
-            setupGestures();
+            setupDoubleTapZoom();
             setupWheelZoom();
             setupKeyboard();
             await loadGallery();
