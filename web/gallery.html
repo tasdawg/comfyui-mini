@@ -19,12 +19,15 @@
         /* Fullscreen Modal */
         #gallery-modal { position: fixed; inset: 0; z-index: 100; background: rgba(3,7,18,0.96); backdrop-filter: blur(4px); display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; transition: opacity 250ms; pointer-events: none; }
         #gallery-modal.active { opacity: 1; pointer-events: auto; }
-        #modal-img { max-width: 92vw; max-height: 86vh; object-fit: contain; border-radius: 4px; box-shadow: 0 16px 48px rgba(0,0,0,0.7); user-select: none; }
+        #modal-img-wrap { position: relative; max-width: 92vw; max-height: 86vh; display: flex; align-items: center; justify-content: center; overflow: hidden; user-select: none; -webkit-user-select: none; touch-action: none; }
+        #modal-img { max-width: 92vw; max-height: 86vh; object-fit: contain; border-radius: 4px; box-shadow: 0 16px 48px rgba(0,0,0,0.7); transition: transform 150ms ease-out; will-change: transform; }
         #modal-overlay { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 101; display: flex; gap: 8px; background: rgba(9,9,11,0.92); border: 1px solid #27272a; border-radius: 10px; padding: 8px 14px; backdrop-filter: blur(6px); box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
         .overlay-btn { display: flex; align-items: center; gap: 6px; background: #1f2937; color: #e4e4e7; border: none; border-radius: 6px; padding: 6px 12px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; transition: background 150ms, color 150ms; }
         .overlay-btn:hover { background: #374151; color: #fff; }
         .overlay-btn.primary { background: #2563eb; }
         .overlay-btn.primary:hover { background: #3b82f6; }
+        #zoom-badge { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 102; background: rgba(0,0,0,0.85); color: #fff; font-size: 14px; font-weight: 700; padding: 6px 14px; border-radius: 20px; pointer-events: none; opacity: 0; transition: opacity 300ms; backdrop-filter: blur(4px); }
+        #zoom-badge.show { opacity: 1; }
 
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
@@ -55,12 +58,18 @@
 
     <!-- Fullscreen Modal -->
     <div id="gallery-modal">
-        <img id="modal-img" src="" alt="">
+        <div id="modal-img-wrap">
+            <img id="modal-img" src="" alt="">
+        </div>
         <div id="modal-overlay">
-            <button id="fav-toggle-btn" class="overlay-btn"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg> <span id="fav-btn-label">ADD TO FAVORITES</span></button>
+            <button id="zoom-toggle-btn" class="overlay-btn"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"></path></svg> ZOOM</button>
+            <button id="zoom-reset-btn" class="overlay-btn" style="display:none;"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg> RESET</button>
+            <button id="fav-toggle-btn" class="overlay-btn"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976 2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538 1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976 2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg> <span id="fav-btn-label">ADD TO FAVORITES</span></button>
             <button id="dl-btn" class="overlay-btn primary"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg> DOWNLOAD</button>
             <button id="close-modal" class="overlay-btn"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg> CLOSE</button>
         </div>
+    </div>
+    <div id="zoom-badge">1.0x</div>
     </div>
 
     <script type="module">
@@ -109,15 +118,176 @@
         const els = {
             grid: document.getElementById('gallery-grid'),
             modal: document.getElementById('gallery-modal'),
+            modalImgWrap: document.getElementById('modal-img-wrap'),
             modalImg: document.getElementById('modal-img'),
             favToggleBtn: document.getElementById('fav-toggle-btn'),
             dlBtn: document.getElementById('dl-btn'),
             closeBtn: document.getElementById('close-modal'),
+            zoomToggleBtn: document.getElementById('zoom-toggle-btn'),
+            zoomResetBtn: document.getElementById('zoom-reset-btn'),
+            zoomBadge: document.getElementById('zoom-badge'),
             paginationBar: document.getElementById('pagination-bar'),
             pageInfo: document.getElementById('page-info'),
             prevBtn: document.getElementById('prev-btn'),
             nextBtn: document.getElementById('next-btn')
         };
+
+        // --- ZOOM STATE (pinch-to-zoom + pan in modal) ---
+        const MAX_ZOOM = 6;
+        const MIN_ZOOM = 1;
+        let zoomScale = 1;
+        let zoomTx = 0;
+        let zoomTy = 0;
+        let isPanning = false;
+        let lastPanX = 0, lastPanY = 0;
+        let pinchStartDist = 0;
+        let pinchStartScale = 1;
+        let pinchStartTx = 0, pinchStartTy = 0;
+        let lastTapTime = 0;
+
+        function applyTransform() {
+            if (!els.modalImg) return;
+            els.modalImg.style.transform = `translate(${zoomTx}px, ${zoomTy}px) scale(${zoomScale})`;
+            els.zoomResetBtn.style.display = zoomScale > 1 ? 'flex' : 'none';
+        }
+
+        function showZoomBadge(text) {
+            if (!els.zoomBadge) return;
+            els.zoomBadge.textContent = text;
+            els.zoomBadge.classList.add('show');
+            clearTimeout(els._badgeTimeout);
+            els._badgeTimeout = setTimeout(() => els.zoomBadge.classList.remove('show'), 800);
+        }
+
+        function clampPan() {
+            if (zoomScale <= 1) { zoomTx = 0; zoomTy = 0; return; }
+            const wrapEl = els.modalImgWrap;
+            if (!wrapEl || !els.modalImg.naturalWidth) return;
+            const w = wrapEl.clientWidth;
+            const h = wrapEl.clientHeight;
+            const imgW = els.modalImg.naturalWidth * zoomScale;
+            const imgH = els.modalImg.naturalHeight * zoomScale;
+            if (imgW <= w + 20) { zoomTx = 0; } else { zoomTx = Math.max(-Math.max(0, imgW - w), Math.min(0, -imgW + w)); }
+            if (imgH <= h + 20) { zoomTy = 0; } else { zoomTy = Math.max(-Math.max(0, imgH - h), Math.min(0, -imgH + h)); }
+        }
+
+        function setZoom(newScale, cx, cy) {
+            const prevScale = zoomScale;
+            zoomScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, newScale));
+            if (zoomScale === MIN_ZOOM && zoomScale !== prevScale) {
+                zoomTx = 0; zoomTy = 0;
+                applyTransform();
+                showZoomBadge('1.0x');
+                return;
+            }
+            // Zoom toward pointer (cx, cy relative to image element)
+            if (els.modalImg.naturalWidth && cx !== undefined) {
+                const rect = els.modalImg.getBoundingClientRect();
+                const imgCx = cx - rect.left;
+                const imgCy = cy - rect.top;
+                const factor = zoomScale / prevScale;
+                zoomTx = imgCx - (imgCx - zoomTx) * factor;
+                zoomTy = imgCy - (imgCy - zoomTy) * factor;
+            }
+            clampPan();
+            applyTransform();
+            showZoomBadge(zoomScale.toFixed(1) + 'x');
+        }
+
+        function touchDist(e) {
+            if (e.touches && e.touches.length >= 2) {
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                return Math.sqrt(dx * dx + dy * dy);
+            }
+            return 0;
+        }
+
+        function touchCenter(e) {
+            if (e.touches && e.touches.length >= 2) {
+                return {
+                    x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+                    y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+                };
+            }
+            if (e.touches && e.touches.length === 1) {
+                return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }
+            return null;
+        }
+
+        // --- PINCH / PAN HANDLERS on modal image wrap ---
+        function setupGestures() {
+            const wrap = els.modalImgWrap;
+            if (!wrap) return;
+
+            wrap.addEventListener('touchstart', (e) => {
+                if (!els.modal.classList.contains('active')) return;
+                if (e.touches.length === 2) {
+                    e.preventDefault();
+                    pinchStartDist = touchDist(e);
+                    pinchStartScale = zoomScale;
+                    pinchStartTx = zoomTx;
+                    pinchStartTy = zoomTy;
+                } else if (e.touches.length === 1 && zoomScale > 1) {
+                    isPanning = true;
+                    lastPanX = e.touches[0].clientX - zoomTx;
+                    lastPanY = e.touches[0].clientY - zoomTy;
+                }
+            }, { passive: false });
+
+            wrap.addEventListener('touchmove', (e) => {
+                if (!els.modal.classList.contains('active')) return;
+                if (e.touches.length === 2 && pinchStartDist > 0) {
+                    e.preventDefault();
+                    const dist = touchDist(e);
+                    const ratio = dist / pinchStartDist;
+                    const newScale = pinchStartScale * ratio;
+                    const center = touchCenter(e);
+                    if (center) setZoom(newScale, center.x, center.y);
+                } else if (e.touches.length === 1 && isPanning && zoomScale > 1) {
+                    e.preventDefault();
+                    zoomTx = e.touches[0].clientX - lastPanX;
+                    zoomTy = e.touches[0].clientY - lastPanY;
+                    clampPan();
+                    applyTransform();
+                }
+            }, { passive: false });
+
+            wrap.addEventListener('touchend', (e) => {
+                if (!els.modal.classList.contains('active')) return;
+                pinchStartDist = 0;
+                if (e.touches.length < 2) isPanning = false;
+                // Double-tap detection on single touch
+                if (e.changedTouches.length === 1 && e.touches.length === 1) {
+                    const now = Date.now();
+                    const t = e.changedTouches[0];
+                    if (now - lastTapTime < 320) {
+                        lastTapTime = 0;
+                        if (zoomScale > 1) { setZoom(1, t.clientX, t.clientY); }
+                        else { setZoom(Math.min(MAX_ZOOM, zoomScale * 2.5), t.clientX, t.clientY); }
+                    } else {
+                        lastTapTime = now;
+                    }
+                }
+            }, false);
+
+            wrap.addEventListener('touchcancel', () => { pinchStartDist = 0; isPanning = false; });
+        }
+
+        function resetZoom() { setZoom(1, undefined, undefined); }
+
+        // --- WHEEL ZOOM on desktop ---
+        function setupWheelZoom() {
+            const wrap = els.modalImgWrap;
+            if (!wrap) return;
+            wrap.addEventListener('wheel', (e) => {
+                if (!els.modal.classList.contains('active')) return;
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                setZoom(zoomScale * delta, e.clientX, e.clientY);
+            }, { passive: false });
+        }
 
         // --- TAB SWITCHING ---
         function switchFolder(type) {
@@ -299,6 +469,8 @@
             document.addEventListener('keydown', (e) => {
                 if (!els.modal.classList.contains('active')) return;
                 if (e.key === 'Escape') closeGalleryModal();
+                if (e.key === '+' || e.key === '=') setZoom(zoomScale * 1.3, window.innerWidth / 2, window.innerHeight / 2);
+                if (e.key === '-') resetZoom();
             });
 
             els.modal.addEventListener('click', (e) => {
@@ -362,9 +534,17 @@
                 });
             }
 
+            if (els.zoomToggleBtn) els.zoomToggleBtn.addEventListener('click', () => {
+                if (zoomScale > 1) resetZoom();
+                else setZoom(2.5, window.innerWidth / 2, window.innerHeight / 2);
+            });
+            if (els.zoomResetBtn) els.zoomResetBtn.addEventListener('click', resetZoom);
+
             if (els.btnOutput) els.btnOutput.addEventListener('click', () => switchFolder('output'));
             if (els.btnInput) els.btnInput.addEventListener('click', () => switchFolder('input'));
 
+            setupGestures();
+            setupWheelZoom();
             setupKeyboard();
             await loadGallery();
             await loadSharedComponents();
