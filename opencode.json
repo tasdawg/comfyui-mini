@@ -1,0 +1,13 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "chrome-devtools": {
+      "type": "local",
+      "command": ["npx", "-y", "chrome-devtools-mcp@latest"]
+    },
+    "ssh-mcp": {
+      "type": "local",
+      "command": ["npx", "-y", "ssh-mcp", "--host=100.84.8.4", "--port=22", "--user=dwaynlocal", "--password=YourStrongPassword", "--timeout=30000", "--maxChars=none"]
+    }
+  }
+}

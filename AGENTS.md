@@ -40,3 +40,9 @@ Internal ComfyUI custom-node module. Mobile/tablet-friendly web UI for running C
 
 ## Testing / verification
 No test framework, linter config, or build system exists. The only "verification" is running ComfyUI and checking the UI works. When modifying Python code, at minimum verify: import doesn't crash ComfyUI startup, routes register correctly, JSON save/load round-trips without corruption.
+
+## Remote deployment workflow
+- **Local edits first**: All code changes are made locally in this workspace (C:\Users\Dwayne\Documents\Programming\comfyui-mini).
+- **Commit and push**: After editing, commit changes with descriptive messages and push to origin/main.
+- **SSH MCP for remote pull**: Use the `ssh-mcp` tool on folder `J:\ComfyUI-Easy-Install-Windows\ComfyUI-Easy-Install\ComfyUI\custom_nodes\comfyui-mini` to run `git pull origin main` before testing. This ensures ComfyUI loads the latest version of your changes.
+- **Then test**: Only after the remote pull completes should you use Chrome DevTools MCP to verify the UI works correctly on mobile/desktop viewports.
