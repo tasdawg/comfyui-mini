@@ -23,6 +23,8 @@ web/
 ├── workflow.meta.json   # Active workflow metadata (titles, _mini_origin)
 ├── layout.json          # UI state: node visibility + heights
 ├── fooocus_styles.json  # Fooocus prompt/style presets
+├── shared/              # Shared header/footer HTML fragments
+├── gallery.html         # Gallery page (/mini/gallery) — output/input image browser with favorites, zoom, download
 ├── workflows/           # Library of saved workflows (.json)
 │   └── meta/            # Sidecars: *.meta.json, *.groups.json
 ├── backups/             # Timestamped backup copies (backup_<ts>.json)
@@ -31,8 +33,8 @@ web/
 
 ## Routes (`/mini/*`)
 
-**Pages:** `/mini`, `/mini/run`, `/mini/gallery`*, `/mini/editor`*, `/mini/automation`  
-\* Not yet implemented — routes return 404 until `gallery.html` / `editor.html` exist.
+**Pages:** `/mini`, `/mini/run`, `/mini/gallery`, `/mini/editor`*, `/mini/automation`  
+\* Not yet implemented — route returns 404 until `editor.html` exists.
 
 **Data (GET):** `/mini/workflow.json`, `/mini/layout.json`, `/mini/fooocus_styles.json`
 
