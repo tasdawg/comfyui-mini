@@ -44,11 +44,15 @@ async function loadSharedComponents() {
             const dropdown = document.getElementById('mobile-menu-dropdown');
             if (mobileBtn && dropdown) {
                 mobileBtn.addEventListener('click', () => {
-                    dropdown.classList.toggle('hidden');
+                    if (dropdown.style.display === 'block') {
+                        dropdown.style.display = 'none';
+                    } else {
+                        dropdown.style.display = 'block';
+                    }
                 });
                 document.addEventListener('click', (e) => {
                     if (!dropdown.contains(e.target) && e.target !== mobileBtn) {
-                        dropdown.classList.add('hidden');
+                        dropdown.style.display = 'none';
                     }
                 });
             }
