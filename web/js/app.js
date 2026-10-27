@@ -23,7 +23,8 @@ const els = {
 };
 
 let loadedWorkflow = {};
-let loadedLayout = []; 
+let baselineWorkflow = {};   // Snapshot at load time; run() diffs against this
+let loadedLayout = [];
 let objectInfo = {};
 let fooocusStyles = [];
 let clientId = ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
@@ -599,6 +600,8 @@ async function init() {
         const wfRes = await fetch(wfUrl, { headers: { 'Cache-Control': 'no-cache' } });
         if(wfRes.ok) loadedWorkflow = await wfRes.json();
         if (!loadedWorkflow || typeof loadedWorkflow !== 'object') loadedWorkflow = {};
+        // Snapshot the loaded graph so run() only uploads the edits you make.
+        baselineWorkflow = JSON.parse(JSON.stringify(loadedWorkflow));
 
         // Debug Log
         console.log(`[DEBUG] Loaded ${specificFile || "Session"} keys:`, Object.keys(loadedWorkflow));
@@ -1877,72 +1880,61 @@ async function run() {
     if(els.loading) els.loading.classList.remove('hidden');
     if(els.progress) els.progress.innerText = '0%';
 
-    // 1. UPDATE STATE & SAVE
-    for (let id in loadedWorkflow) {
+    await saveGroups();
+
+    // 1. DIFF: send only the nodes you changed or added since load. The rest of
+    //    the graph (class_type + connections) stays on the server, read from disk.
+    const diffNodes = {};
+    for (const id in loadedWorkflow) {
         const node = loadedWorkflow[id];
         if (!node || typeof node !== 'object') continue;
-        if (node.class_type === 'KSampler' && node.inputs && node.inputs.seed !== undefined) {
-            node.inputs.seed = Math.floor(Math.random() * 10000000000);
+        if (id.startsWith('_')) continue;
+        const base = baselineWorkflow[id];
+        if (!base) {
+            // New node added in the editor — not on disk yet, send it whole.
+            diffNodes[id] = node;
+        } else if (
+            node.class_type !== base.class_type ||
+            JSON.stringify(node.inputs) !== JSON.stringify(base.inputs)
+        ) {
+            // Existing node whose inputs (or type) changed — send it whole.
+            diffNodes[id] = node;
         }
     }
-    // ADDED: Force save active workflow to disk before running
-    logTerminal("Saving workflow...");
-    await fetch('/mini/save_workflow', { 
-        method: 'POST', 
-        body: JSON.stringify(loadedWorkflow) 
-    });
+    console.log(`[DEBUG] Run: sending ${Object.keys(diffNodes).length} changed/new node(s) to server.`);
 
-    await saveGroups(); 
+    // 2. Server reads the graph from disk, applies the diff, persists it,
+    //    randomises the seed and queues the prompt in-process. No full upload.
+    const payload = {
+        file: loadedWorkflow._mini_origin || undefined,
+        nodes: diffNodes,
+        client_id: clientId
+    };
 
-    // 2. PREPARE PAYLOAD
-    const apiPrompt = JSON.parse(JSON.stringify(loadedWorkflow));
-    for (let id in apiPrompt) {
-        const node = apiPrompt[id];
-        if (id.startsWith('_')) { delete apiPrompt[id]; continue; }
-        if (!node.class_type) { delete apiPrompt[id]; continue; }
-        if (node.class_type === 'MiniGroup' || node.class_type === 'Note' || node.class_type === 'AppInfo') {
-            delete apiPrompt[id];
-            continue;
-        }
-    }
-
-    // 3. META FORMAT (Fix for KeyError: 'nodes')
-    const metaWorkflow = { "nodes": [], "links": [], "groups": [], "version": 0.4 };
-    for (let [id, node] of Object.entries(loadedWorkflow)) {
-        const nodeForMeta = { id: Number(id), type: node.class_type, ...node };
-        metaWorkflow.nodes.push(nodeForMeta);
-    }
-
-    // 4. EXECUTE & CAPTURE ID
     try {
-        const payload = { 
-            client_id: clientId, 
-            prompt: apiPrompt,
-            extra_data: { extra_pnginfo: { workflow: metaWorkflow } }
-        };
-
-        console.log("[DEBUG] Sending Prompt:", payload);
-        const res = await fetch('/prompt', { 
-            method: 'POST', 
-            body: JSON.stringify(payload) 
+        const res = await fetch('/mini/run', {
+            method: 'POST',
+            body: JSON.stringify(payload)
         });
-        
+
         if (!res.ok) throw new Error(`Server Error ${res.status}`);
-        
+
         const data = await res.json();
         logTerminal(`Prompt queued (id: ${data.prompt_id})`, "info");
         console.log("[DEBUG] Run Started. Prompt ID:", data.prompt_id);
-        
+
         // --- CAPTURE THE ID HERE ---
         currentPromptId = data.prompt_id;
-        
+
+        // The server persisted these edits, so they are now the new baseline.
+        baselineWorkflow = JSON.parse(JSON.stringify(loadedWorkflow));
         renderControls();
-    } catch(e) { 
+    } catch(e) {
         logTerminal(`Run failed: ${e.message}`, "error");
-        alert("Run failed: " + e.message); 
+        alert("Run failed: " + e.message);
         console.error(e);
-        if(els.genBtn) els.genBtn.classList.remove('hidden'); 
-        if(els.stopBtn) els.stopBtn.classList.add('hidden'); 
+        if(els.genBtn) els.genBtn.classList.remove('hidden');
+        if(els.stopBtn) els.stopBtn.classList.add('hidden');
         if(els.loading) els.loading.classList.add('hidden');
     }
 }

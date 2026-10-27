@@ -1,8 +1,11 @@
 import os
 import json
 import shutil
+import uuid
+import random
 import server
 import time
+import execution
 from aiohttp import web
 import folder_paths
 
@@ -319,6 +322,107 @@ async def save_active_workflow(request):
         return web.json_response({"status": "success"})
     except Exception as e: 
         return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+# --- SERVER-SIDE RUN ---
+# The browser only sends the input edits it made since load. The graph
+# (class_type + connections) stays on disk, is read here, the diff is applied,
+# the result is persisted, and the prompt is queued IN-PROCESS (no /prompt
+# HTTP round-trip, no full workflow upload from the browser).
+@server.PromptServer.instance.routes.post("/mini/run")
+async def mini_run(request):
+    try:
+        body = await request.json()
+        file = body.get("file")            # optional library filename (e.g. "X.json")
+        diff_nodes = body.get("nodes", {})  # {nodeId: {class_type, inputs}} for changed/new nodes
+        client_id = body.get("client_id", "")
+
+        # 1. Locate the graph on disk.
+        if file and os.path.exists(os.path.join(WORKFLOWS_DIR, file)):
+            logic_path = os.path.join(WORKFLOWS_DIR, file)
+            meta_path = os.path.join(META_DIR, file.replace(".json", ".meta.json"))
+        else:
+            logic_path = os.path.join(WEBROOT, "workflow.json")
+            meta_path = os.path.join(WEBROOT, "workflow.meta.json")
+
+        logic = {}
+        if os.path.exists(logic_path):
+            with open(logic_path, "r", encoding="utf-8") as f: logic = json.load(f)
+
+        meta = {}
+        if os.path.exists(meta_path):
+            try:
+                with open(meta_path, "r", encoding="utf-8") as f: meta = json.load(f)
+            except Exception:
+                meta = {}
+
+        # 2. Apply the changed/new nodes on top of the on-disk graph.
+        for node_id, node_data in diff_nodes.items():
+            if not isinstance(node_data, dict):
+                continue
+            logic[node_id] = {
+                "inputs": node_data.get("inputs", {}),
+                "class_type": node_data.get("class_type", ""),
+            }
+
+        # 3. Persist the updated graph so the edits survive a reload.
+        with open(logic_path, "w", encoding="utf-8") as f:
+            json.dump(logic, f, indent=2)
+            os.fsync(f.fileno())
+
+        # 4. Merge logic + meta for execution.
+        merged = merge_workflow_data(logic, meta)
+
+        # 5. Fresh seed on every run (matches the previous client-side behaviour).
+        for node in merged.values():
+            if isinstance(node, dict) and node.get("class_type") == "KSampler":
+                if isinstance(node.get("inputs"), dict) and "seed" in node["inputs"]:
+                    node["inputs"]["seed"] = random.randint(0, 2 ** 32 - 1)
+
+        # 6. Build the API prompt (strip _ keys, non-node entries, UI-only nodes).
+        api_prompt = {}
+        for node_id, node in merged.items():
+            if node_id.startswith("_"): continue
+            if not isinstance(node, dict): continue
+            if not node.get("class_type"): continue
+            if node.get("class_type") in ("MiniGroup", "Note", "AppInfo"): continue
+            api_prompt[node_id] = {
+                "inputs": node.get("inputs", {}),
+                "class_type": node["class_type"],
+            }
+
+        # 7. Build the meta-workflow (for the PNG sidecar / history).
+        meta_workflow = { "nodes": [], "links": [], "groups": [], "version": 0.4 }
+        for node_id, node in merged.items():
+            if not isinstance(node, dict): continue
+            try: node_id_num = int(node_id)
+            except (ValueError, TypeError): node_id_num = node_id
+            meta_workflow["nodes"].append(
+                { "id": node_id_num, "type": node.get("class_type", ""), **node }
+            )
+
+        # 8. Validate and queue IN-PROCESS (same call /prompt makes, no HTTP).
+        prompt_id = str(uuid.uuid4())
+        ps = server.PromptServer.instance
+        valid = await execution.validate_prompt(prompt_id, api_prompt)
+        if not valid[0]:
+            return web.json_response({"error": valid[1], "node_errors": valid[3]}, status=400)
+
+        outputs_to_execute = valid[2]
+        extra_data = { "extra_pnginfo": { "workflow": meta_workflow } }
+        if client_id: extra_data["client_id"] = client_id
+
+        sensitive = {}
+        for k in execution.SENSITIVE_EXTRA_DATA_KEYS:
+            if k in extra_data: sensitive[k] = extra_data.pop(k)
+        extra_data["create_time"] = int(time.time() * 1000)
+
+        number = ps.number
+        ps.number += 1
+        ps.prompt_queue.put((number, prompt_id, api_prompt, extra_data, outputs_to_execute, sensitive))
+
+        return web.json_response({"prompt_id": prompt_id, "number": number})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
 
 @server.PromptServer.instance.routes.post("/mini/save_library")
 async def save_library(request):
