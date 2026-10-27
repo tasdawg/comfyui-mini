@@ -46,17 +46,28 @@ let activeGroupId = null;       // ID of the group currently being built
 let thumbBoundInputs = new Set();  // Tracks input elements that already have thumbnail handlers bound (avoids duplicate bindings across renders)
 
 // --- FAVORITES HELPERS (server-side) ---
-async function getFavorites() {
-    try {
-        const res = await fetch('/mini/load_favorites');
-        if (!res.ok) return [];
-        return await res.json();
-    } catch { return []; }
+// Memoized: renderControls calls this once per image node, and they all run in
+// the same pass — one shared fetch instead of N serial round-trips.
+let favoritesCache = null;
+let favoritesPromise = null;
+function getFavorites() {
+    if (favoritesCache) return Promise.resolve(favoritesCache);
+    if (!favoritesPromise) {
+        favoritesPromise = (async () => {
+            try {
+                const res = await fetch('/mini/load_favorites');
+                favoritesCache = res.ok ? await res.json() : [];
+            } catch { favoritesCache = []; }
+            return favoritesCache;
+        })();
+    }
+    return favoritesPromise;
 }
 
 async function setFavorites(list) {
     try {
         await fetch('/mini/save_favorites', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ list }) });
+        favoritesCache = list; // invalidate the shared cache with the new value
     } catch (e) { console.error('[app] Save favorites failed:', e.message); }
 }
 
@@ -496,18 +507,46 @@ function renameGroup(id) {
     }
 }
 
+// Per-type object_info cache in localStorage. Schemas rarely change (only when
+// custom nodes are installed/removed), so a long TTL is safe. Types whose info
+// embeds a live file list (LoadImage*) get a short TTL so new uploads appear.
+const OI_TTL_STATIC = 60 * 60 * 1000;      // 1 hour
+const OI_TTL_VOLATILE = 60 * 1000;         // 60s
+const OI_VOLATILE_TYPES = new Set(['LoadImage', 'LoadImageMask']);
+
 export async function getObjectInfo(nodeClass) {
     if (objectInfo[nodeClass]) return objectInfo[nodeClass];
+    try {
+        const cached = localStorage.getItem('mini_oi_' + nodeClass);
+        if (cached) {
+            const { t, v } = JSON.parse(cached);
+            const ttl = OI_VOLATILE_TYPES.has(nodeClass) ? OI_TTL_VOLATILE : OI_TTL_STATIC;
+            if (v && Date.now() - t < ttl) { objectInfo[nodeClass] = v; return v; }
+        }
+    } catch (e) { /* corrupt cache entry — ignore and refetch */ }
     try {
         const res = await fetch(`/object_info/${nodeClass}`);
         if (!res.ok) return null;
         const data = await res.json();
         if (data[nodeClass]) {
             objectInfo[nodeClass] = data[nodeClass];
+            try {
+                localStorage.setItem('mini_oi_' + nodeClass, JSON.stringify({ t: Date.now(), v: data[nodeClass] }));
+            } catch (e) { /* quota exceeded (huge file list) — skip caching */ }
             return data[nodeClass];
         }
         return null;
     } catch (e) { return null; }
+}
+
+// The list of files a LoadImage dropdown can pick from, from the cached info.
+async function getLoadImageOptions() {
+    const info = await getObjectInfo('LoadImage');
+    if (!info) return [];
+    const raw = info.input?.required?.image;
+    if (Array.isArray(raw)) return Array.isArray(raw[0]) ? raw[0] : [];
+    if (raw && typeof raw === 'object' && Array.isArray(raw.options)) return raw.options;
+    return [];
 }
 
 async function checkBackendForNodes() {
@@ -580,9 +619,6 @@ async function init() {
     connectWS();
     await loadSharedComponents();
     try {
-        const infoRes = await fetch('/object_info');
-        if(infoRes.ok) objectInfo = await infoRes.json();
-
         // --- 1. DETERMINE SOURCE ---
         const urlParams = new URLSearchParams(window.location.search);
         const specificFile = urlParams.get('file');
@@ -621,12 +657,19 @@ async function init() {
         // Debug Log
         console.log(`[DEBUG] Loaded ${specificFile || "Session"} keys:`, Object.keys(loadedWorkflow));
 
-        await checkBackendForNodes();
-
-        // Load config files
-        loadedLayout = await safeFetch('/mini/layout.json?t=' + Date.now(), []);
-        customGroups = await safeFetch(groupsUrl, []); 
-        fooocusStyles = await safeFetch('/mini/fooocus_styles.json', []);
+        // --- 3. SCHEMAS + CONFIG IN PARALLEL ---
+        // Only fetch the per-type schemas this workflow actually uses (the full
+        // /object_info dump is no longer downloaded), and fetch the three config
+        // files at the same time instead of three serial round-trips.
+        const [/*schemas*/, newLayout, newGroups, newStyles] = await Promise.all([
+            checkBackendForNodes(),
+            safeFetch('/mini/layout.json?t=' + Date.now(), []),
+            safeFetch(groupsUrl, []),
+            safeFetch('/mini/fooocus_styles.json', [])
+        ]);
+        loadedLayout = newLayout;
+        customGroups = newGroups;
+        fooocusStyles = newStyles;
         
         // Update Header
         if (els.header) {
@@ -1382,35 +1425,19 @@ async function renderControls() {
                 selectEl3.dataset.node = inputRef.nodeId;
                 selectEl3.dataset.key = inputRef.key;
 
-                let options3 = [];
-                
-                try {
-                    const imgListRes3 = await fetch('/object_info/LoadImage');
-                    if (imgListRes3.ok) {
-                        // Check for auth-protected responses that return HTML instead of JSON
-                        const ct = imgListRes3.headers.get('content-type') || '';
-                        if (!ct.includes('application/json')) throw new Error('Auth required');
-                        const infoData3 = await imgListRes3.json();
-                        const raw = infoData3?.LoadImage?.input?.required?.image;
-                        if (Array.isArray(raw)) {
-                            // ComfyUI format: [0] is the option list, [1] may be "IMAGE" type hint
-                            options3 = Array.isArray(raw[0]) ? raw[0] : [];
-                        } else if (raw && typeof raw === 'object' && Array.isArray(raw.options)) {
-                            options3 = raw.options;
-                        }
-                        if (options3.length === 0) console.warn('[app] LoadImage options empty:', JSON.stringify(infoData3).substring(0, 500));
-                        await populateImageSelect(selectEl3, options3, imageFilename);
-                    } else {
-                        // Fallback: populate with just the current filename so user has something to see
-                        if (imageFilename) {
-                            const oEl = document.createElement('option');
-                            oEl.value = imageFilename;
-                            oEl.innerText = imageFilename.replace(/\.[^/.]+$/, '');
-                            oEl.selected = true;
-                            selectEl3.appendChild(oEl);
-                        }
-                    }
-                } catch (e) { console.error('[app] LoadImage fetch failed:', e.message); }
+                // Shared, cached file list — fetched once per page load (in
+                // parallel with everything else), never per-node in this loop.
+                const options3 = await getLoadImageOptions();
+                if (options3.length > 0) {
+                    await populateImageSelect(selectEl3, options3, imageFilename);
+                } else if (imageFilename) {
+                    // Fallback: populate with just the current filename so user has something to see
+                    const oEl = document.createElement('option');
+                    oEl.value = imageFilename;
+                    oEl.innerText = imageFilename.replace(/\.[^/.]+$/, '');
+                    oEl.selected = true;
+                    selectEl3.appendChild(oEl);
+                }
 
                 selectEl3.onchange = async () => {
                     const selVal = selectEl3.value;
@@ -1675,33 +1702,17 @@ async function renderControls() {
                     selectStandalone.className = 'w-full input-dark rounded p-1.5 text-[10px] font-sans outline-none appearance-none cursor-pointer';
                     selectStandalone.dataset.key = key;
 
-                    let options4 = [];
-                    
-                    try {
-                        const imgListRes4 = await fetch('/object_info/LoadImage');
-                        if (imgListRes4.ok) {
-                            // Check for auth-protected responses that return HTML instead of JSON
-                            const ct4 = imgListRes4.headers.get('content-type') || '';
-                            if (!ct4.includes('application/json')) throw new Error('Auth required');
-                            const infoData4 = await imgListRes4.json();
-                            const raw4 = infoData4?.LoadImage?.input?.required?.image;
-                            if (Array.isArray(raw4)) {
-                                options4 = Array.isArray(raw4[0]) ? raw4[0] : [];
-                            } else if (raw4 && typeof raw4 === 'object' && Array.isArray(raw4.options)) {
-                                options4 = raw4.options;
-                            }
-                            if (options4.length === 0) console.warn('[app] LoadImage options empty:', JSON.stringify(infoData4).substring(0, 500));
-                            await populateImageSelect(selectStandalone, options4, val);
-                        } else {
-                            if (val) {
-                                const oEl = document.createElement('option');
-                                oEl.value = val;
-                                oEl.innerText = val.replace(/\.[^/.]+$/, '');
-                                oEl.selected = true;
-                                selectStandalone.appendChild(oEl);
-                            }
-                        }
-                    } catch (e) { console.error('[app] LoadImage fetch failed:', e.message); }
+                    // Shared, cached file list (see getLoadImageOptions).
+                    const options4 = await getLoadImageOptions();
+                    if (options4.length > 0) {
+                        await populateImageSelect(selectStandalone, options4, val);
+                    } else if (val) {
+                        const oEl = document.createElement('option');
+                        oEl.value = val;
+                        oEl.innerText = val.replace(/\.[^/.]+$/, '');
+                        oEl.selected = true;
+                        selectStandalone.appendChild(oEl);
+                    }
 
                     selectStandalone.onchange = async () => {
                         const selVal = selectStandalone.value;
