@@ -7,14 +7,39 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #030712; color: #d4d4d8; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; padding: 12px 12px 12px 12px; flex: 1; overflow-y: auto; align-content: start; }
-        .thumb-card { position: relative; aspect-ratio: 1; border-radius: 6px; overflow: hidden; cursor: pointer; transition: transform 150ms, box-shadow 150ms; background-color: #0a0a0a; border: 1px solid #1f2937; }
-        .thumb-card:hover { transform: scale(1.04); box-shadow: 0 8px 24px rgba(0,0,0,0.6); border-color: #3b82f6; z-index: 5; }
-        .thumb-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+        /* --- Mobile-first responsive grid --- */
+        .gallery-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; padding: 8px 8px 16px 8px; flex: 1; overflow-y: auto; align-content: start; -webkit-overflow-scrolling: touch; }
+        @media (min-width: 480px)  { .gallery-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 10px 10px 16px 10px; } }
+        @media (min-width: 768px)  { .gallery-grid { grid-template-columns: repeat(4, 1fr); } }
+        @media (min-width: 1024px) { .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; padding: 12px 12px 16px 12px; } }
+
+        .thumb-card { position: relative; aspect-ratio: 1; border-radius: 6px; overflow: hidden; cursor: pointer; background-color: #0a0a0a; border: 1px solid #1f2937; touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+        .thumb-card:active { transform: scale(0.97); border-color: #3b82f6; }
+        .thumb-card img { width: 100%; height: 100%; object-fit: cover; display: block; background-color: #18181b; }
         .thumb-label { position: absolute; bottom: 0; left: 0; right: 0; padding: 4px 6px; background: linear-gradient(to top, rgba(0,0,0,0.85), transparent); font-size: 9px; color: #a1a1aa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
         .thumb-type-badge { position: absolute; top: 4px; right: 4px; padding: 2px 5px; border-radius: 3px; font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; pointer-events: none; }
         .thumb-type-badge.output { background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.3); }
         .thumb-type-badge.input { background: rgba(96, 165, 250, 0.15); color: #60a5fa; border: 1px solid rgba(96, 165, 250, 0.3); }
+        @media (hover: hover) {
+            .thumb-card { transition: transform 150ms, box-shadow 150ms; }
+            .thumb-card:hover { transform: scale(1.04); box-shadow: 0 8px 24px rgba(0,0,0,0.6); border-color: #3b82f6; z-index: 5; }
+        }
+
+        /* --- Folder tiles --- */
+        .folder-card { position: relative; aspect-ratio: 1; border-radius: 6px; overflow: hidden; cursor: pointer; background-color: #0d1117; border: 1px solid #1f2937; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+        .folder-card:active { transform: scale(0.97); border-color: #60a5fa; background-color: #111827; }
+        .folder-card svg { width: 34%; height: auto; color: #60a5fa; opacity: 0.85; }
+        .folder-name { font-size: 10px; font-weight: 600; color: #e4e4e7; max-width: 92%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .folder-count { position: absolute; top: 4px; right: 4px; padding: 2px 6px; border-radius: 999px; font-size: 8px; font-weight: 700; background: rgba(96, 165, 250, 0.15); color: #60a5fa; border: 1px solid rgba(96, 165, 250, 0.3); }
+
+        /* --- Breadcrumb path bar --- */
+        #breadcrumb-bar { display: flex; align-items: center; gap: 2px; height: 30px; padding: 0 10px; border-bottom: 1px solid #1f2937; background: #0a0a0a; overflow-x: auto; scrollbar-width: none; flex-shrink: 0; }
+        #breadcrumb-bar::-webkit-scrollbar { display: none; }
+        .crumb { display: flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #71717a; padding: 4px 7px; border-radius: 5px; cursor: pointer; white-space: nowrap; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+        .crumb:active { background: #1f2937; color: #e4e4e7; }
+        .crumb.current { color: #60a5fa; cursor: default; }
+        .crumb-sep { color: #3f3f46; font-size: 10px; flex-shrink: 0; }
 
         /* Fullscreen Modal */
         #gallery-modal { position: fixed; inset: 0; z-index: 100; background: rgba(3,7,18,0.96); backdrop-filter: blur(4px); display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; transition: opacity 250ms; pointer-events: none; }
@@ -24,13 +49,18 @@
         #modal-spinner.show { opacity: 1; }
         @keyframes modal-spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
         #modal-img { max-width: 92vw; max-height: 86vh; object-fit: contain; border-radius: 4px; box-shadow: 0 16px 48px rgba(0,0,0,0.7); transition: transform 150ms ease-out; will-change: transform; }
-        #modal-overlay { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 101; display: flex; gap: 8px; background: rgba(9,9,11,0.92); border: 1px solid #27272a; border-radius: 10px; padding: 8px 14px; backdrop-filter: blur(6px); box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
-        .overlay-btn { display: flex; align-items: center; gap: 6px; background: #1f2937; color: #e4e4e7; border: none; border-radius: 6px; padding: 6px 12px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; transition: background 150ms, color 150ms; }
+        #modal-overlay { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 101; display: flex; gap: 8px; background: rgba(9,9,11,0.92); border: 1px solid #27272a; border-radius: 10px; padding: 8px 14px; backdrop-filter: blur(6px); box-shadow: 0 8px 24px rgba(0,0,0,0.5); max-width: 94vw; overflow-x: auto; }
+        .overlay-btn { display: flex; align-items: center; gap: 6px; background: #1f2937; color: #e4e4e7; border: none; border-radius: 6px; padding: 6px 12px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; transition: background 150ms, color 150ms; white-space: nowrap; }
         .overlay-btn:hover { background: #374151; color: #fff; }
         .overlay-btn.primary { background: #2563eb; }
         .overlay-btn.primary:hover { background: #3b82f6; }
         #zoom-badge { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 102; background: rgba(0,0,0,0.85); color: #fff; font-size: 14px; font-weight: 700; padding: 6px 14px; border-radius: 20px; pointer-events: none; opacity: 0; transition: opacity 300ms; backdrop-filter: blur(4px); }
         #zoom-badge.show { opacity: 1; }
+
+        /* Floating Pagination Bar (Top Right) */
+        #pagination-bar { position: absolute; top: 42px; right: 12px; z-index: 50; display: none; align-items: center; gap: 3px; background: rgba(10,10,10,0.95); border: 1px solid #27272a; border-radius: 8px; padding: 3px 6px; backdrop-filter: blur(6px); box-shadow: 0 4px 16px rgba(0,0,0,0.5); }
+        #pagination-bar .overlay-btn { padding: 5px 9px; background: transparent; }
+        #pagination-bar .overlay-btn:hover { background: #1f2937; }
 
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
@@ -42,20 +72,28 @@
     <!-- Page-specific header content (Gallery page) -->
     <header class="h-9 shrink-0 flex items-center justify-between px-4 border-b border-[#1f2937] bg-[#0a0a0a] z-40">
         <div class="flex items-center gap-3"></div>
-        <div class="flex items-center gap-4 shrink-0">
+        <div class="flex items-center gap-2 shrink-0">
             <button id="btn-output" class="tab-btn active text-xs px-3 py-1 rounded uppercase font-bold transition-colors">OUTPUT</button>
             <button id="btn-input" class="tab-btn text-xs px-3 py-1 rounded uppercase font-bold transition-colors">INPUT</button>
+            <button id="btn-refresh" class="text-zinc-500 hover:text-white active:scale-90 transition-colors p-1" title="Refresh">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M5.5 9a7 7 0 0111.4-2.5L20 9M4 15l3.1 2.5A7 7 0 0018.5 15"></path></svg>
+            </button>
         </div>
     </header>
 
-    <!-- Floating Pagination Bar (Top Right) -->
-    <nav id="pagination-bar" style="display:none;" class="fixed top-[40px] right-[12px] z-50 flex items-center gap-3 bg-[#0a0a0a]/95 border border-[#27272a] rounded-lg px-3 py-2 backdrop-blur shadow-lg">
-        <button id="prev-btn" class="overlay-btn disabled:opacity-40 disabled:pointer-events-none"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg></button>
-        <span id="page-info" class="text-[10px] text-zinc-400 uppercase font-bold tracking-wider">-</span>
-        <button id="next-btn" class="overlay-btn disabled:opacity-40 disabled:pointer-events-none"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></button>
-    </nav>
+    <!-- Breadcrumb folder path -->
+    <nav id="breadcrumb-bar"></nav>
 
-    <main id="gallery-grid" class="gallery-grid flex-1 min-h-0 pt-[48px]"></main>
+    <div class="relative flex-1 min-h-0 flex flex-col">
+        <main id="gallery-grid" class="gallery-grid flex-1 min-h-0"></main>
+
+        <!-- Floating Pagination Bar (Top Right) -->
+        <nav id="pagination-bar">
+            <button id="prev-btn" class="overlay-btn disabled:opacity-40 disabled:pointer-events-none"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg></button>
+            <span id="page-info" class="text-[10px] text-zinc-400 uppercase font-bold tracking-wider">-</span>
+            <button id="next-btn" class="overlay-btn disabled:opacity-40 disabled:pointer-events-none"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></button>
+        </nav>
+    </div>
 
     <div id="shared-footer"></div>
 
@@ -74,25 +112,31 @@
         </div>
     </div>
     <div id="zoom-badge">1.0x</div>
-    </div>
 
     <script type="module">
         // --- STATE ---
-        let currentFolder = 'output';  // 'output' or 'input'
+        let currentFolder = 'output';   // 'output' or 'input'
+        let currentPath = '';           // subfolder path, e.g. "runs/takes"
         let currentPage = 0;
-        const PAGE_SIZE = 20;
+        const PAGE_SIZE = 24;
+        const THUMB_SIZE = 360;
         let allImages = [];
-        let activeFavMenuCard = null;
+        let allFolders = [];
+        const listingCache = new Map(); // "type|path" -> {folders, images}
+
+        // --- HELPERS ---
+        const rootLabel = () => currentFolder.toUpperCase();
+        const pathSegments = () => currentPath ? currentPath.split('/') : [];
+        const viewUrl = (img) => `/view?filename=${encodeURIComponent(img.filename)}&subfolder=${encodeURIComponent(currentPath)}&type=${currentFolder}`;
+        const thumbUrl = (filename) => `/mini/thumb?filename=${encodeURIComponent(filename)}&path=${encodeURIComponent(currentPath)}&type=${currentFolder}&size=${THUMB_SIZE}`;
 
         // --- FAVORITES (server-side, shared across devices) ---
         async function getFavorites() {
             try { const res = await fetch('/mini/load_favorites'); if (!res.ok) return []; return await res.json(); } catch { return []; }
         }
-        
         async function saveFavorites(list) {
             try { await fetch('/mini/save_favorites', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ list }) }); } catch (e) { console.error('[gallery] Save favorites failed:', e.message); }
         }
-        
         async function toggleFavorite(image) {
             const list = await getFavorites();
             const idx = list.indexOf(image.filename);
@@ -100,27 +144,9 @@
             await saveFavorites(list);
         }
 
-        // --- FAVORITES MENU ---
-        function openFavMenu(card) {
-            closeFavMenu();
-            const menu = card.querySelector('.fav-menu');
-            if (menu) { menu.classList.add('active'); activeFavMenuCard = card; }
-        }
-        
-        function closeFavMenu(cardToSkip) {
-            if (activeFavMenuCard && activeFavMenuCard !== cardToSkip) {
-                const menu = activeFavMenuCard.querySelector('.fav-menu');
-                if (menu) menu.classList.remove('active');
-            }
-            activeFavMenuCard = null;
-        }
-
-        // Close fav menu when clicking anywhere outside it
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.thumb-card')) closeFavMenu();
-        });
         const els = {
             grid: document.getElementById('gallery-grid'),
+            breadcrumb: document.getElementById('breadcrumb-bar'),
             modal: document.getElementById('gallery-modal'),
             modalImgWrap: document.getElementById('modal-img-wrap'),
             modalSpinner: document.getElementById('modal-spinner'),
@@ -134,7 +160,10 @@
             paginationBar: document.getElementById('pagination-bar'),
             pageInfo: document.getElementById('page-info'),
             prevBtn: document.getElementById('prev-btn'),
-            nextBtn: document.getElementById('next-btn')
+            nextBtn: document.getElementById('next-btn'),
+            btnOutput: document.getElementById('btn-output'),
+            btnInput: document.getElementById('btn-input'),
+            btnRefresh: document.getElementById('btn-refresh')
         };
 
         // --- ZOOM STATE (double-tap + wheel zoom) ---
@@ -180,7 +209,6 @@
                 showZoomBadge('1.0x');
                 return;
             }
-            // Zoom toward pointer (cx, cy relative to image element)
             if (els.modalImg.naturalWidth && cx !== undefined) {
                 const rect = els.modalImg.getBoundingClientRect();
                 const imgCx = cx - rect.left;
@@ -226,58 +254,76 @@
             }, { passive: false });
         }
 
-        // --- TAB SWITCHING ---
-        function switchFolder(type) {
-            currentFolder = type;
+        // --- NAVIGATION ---
+        function navigate(type, path) {
+            currentFolder = type || currentFolder;
+            currentPath = path || '';
             currentPage = 0;
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.className = 'tab-btn text-xs px-3 py-1 rounded uppercase font-bold transition-colors';
             });
-            const activeBtn = type === 'output' ? els.btnOutput : els.btnInput;
+            const activeBtn = currentFolder === 'output' ? els.btnOutput : els.btnInput;
             if (activeBtn) activeBtn.className = 'tab-btn active text-xs px-3 py-1 rounded uppercase font-bold transition-colors bg-blue-600 text-white border border-blue-500';
+            renderBreadcrumb();
             loadGallery();
+        }
+
+        function renderBreadcrumb() {
+            if (!els.breadcrumb) return;
+            els.breadcrumb.innerHTML = '';
+            const segments = [rootLabel(), ...pathSegments()];
+            segments.forEach((seg, i) => {
+                if (i > 0) {
+                    const sep = document.createElement('span');
+                    sep.className = 'crumb-sep';
+                    sep.textContent = '›';
+                    els.breadcrumb.appendChild(sep);
+                }
+                const crumb = document.createElement('span');
+                const isLast = i === segments.length - 1;
+                crumb.className = 'crumb' + (isLast ? ' current' : '');
+                crumb.textContent = seg;
+                if (!isLast) {
+                    const targetPath = i === 0 ? '' : segments.slice(1, i).join('/');
+                    crumb.addEventListener('click', () => navigate(currentFolder, targetPath));
+                }
+                els.breadcrumb.appendChild(crumb);
+            });
         }
 
         // --- LOAD GALLERY ---
         async function loadGallery() {
             els.grid.innerHTML = '';
-            
-            try {
-                const res = await fetch(`/mini/files?type=${currentFolder}&t=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' } });
-                if (!res.ok) throw new Error(`Server error ${res.status}`);
+            const cacheKey = `${currentFolder}|${currentPath}`;
 
-                // Check if response is actually JSON (not login page HTML)
-                const contentType = res.headers.get('content-type') || '';
-                if (!contentType.includes('application/json')) {
-                    const text = await res.text();
-                    throw new Error(text.includes('<html') ? 'Authentication required - please log in to ComfyUI first' : `Unexpected response: ${text.substring(0, 200)}`);
-                }
+            let data = listingCache.get(cacheKey);
+            if (!data) {
+                try {
+                    const res = await fetch(`/mini/files?type=${currentFolder}&path=${encodeURIComponent(currentPath)}`, { headers: { 'Cache-Control': 'no-cache' } });
+                    if (!res.ok) throw new Error(`Server error ${res.status}`);
 
-                const data = await res.json();
-                if (data.error) throw new Error(data.error);
-
-                let allImagesRaw = [];
-                // Handle both formats: {images:[...]} and {[0]:{filename:...}}
-                if (Array.isArray(data)) {
-                    allImagesRaw = data;
-                } else if (Array.isArray(data.images)) {
-                    allImagesRaw = data.images;
-                } else if (data && typeof data === 'object') {
-                    // Check for ComfyUI-style keys like "0", "1", etc.
-                    const keys = Object.keys(data).filter(k => !isNaN(parseInt(k)));
-                    if (keys.length > 0) {
-                        allImagesRaw = keys.map(k => ({ filename: data[k].filename || k, subfolder: data[k].subfolder || '', type: currentFolder }));
+                    const contentType = res.headers.get('content-type') || '';
+                    if (!contentType.includes('application/json')) {
+                        const text = await res.text();
+                        throw new Error(text.includes('<html') ? 'Authentication required - please log in to ComfyUI first' : `Unexpected response: ${text.substring(0, 200)}`);
                     }
-                }
 
-                console.log(`[Gallery] Loaded ${allImagesRaw.length} images for ${currentFolder}`);
-                allImages = allImagesRaw;
-                
-                renderPage(currentPage);
-            } catch (e) {
-                console.error('[Gallery] Load error:', e);
-                els.grid.innerHTML = `<div class="flex items-center justify-center text-red-400 text-xs uppercase tracking-widest p-8">${e.message}</div>`;
+                    data = await res.json();
+                    if (data.error) throw new Error(data.error);
+                    listingCache.set(cacheKey, data);
+                } catch (e) {
+                    console.error('[Gallery] Load error:', e);
+                    els.grid.innerHTML = `<div class="col-span-full flex items-center justify-center text-red-400 text-xs uppercase tracking-widest p-8">${e.message}</div>`;
+                    els.paginationBar.style.display = 'none';
+                    return;
+                }
             }
+
+            allFolders = Array.isArray(data.folders) ? data.folders : [];
+            allImages = Array.isArray(data.images) ? data.images : [];
+            console.log(`[Gallery] ${allFolders.length} folders, ${allImages.length} images in ${rootLabel()}:${currentPath}`);
+
+            renderPage(currentPage);
         }
 
         // --- RENDER PAGE ---
@@ -285,9 +331,45 @@
             if (!els.grid) return;
             els.grid.innerHTML = '';
 
+            // Folder tiles first (always visible, before images)
+            for (const folder of allFolders) {
+                const name = typeof folder === 'string' ? folder : folder.name;
+                const count = typeof folder === 'object' ? folder.count : null;
+                const card = document.createElement('div');
+                card.className = 'folder-card';
+                const target = currentPath ? `${currentPath}/${name}` : name;
+
+                const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                icon.setAttribute('fill', 'none');
+                icon.setAttribute('stroke', 'currentColor');
+                icon.setAttribute('viewBox', '0 0 24 24');
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>';
+                card.appendChild(icon);
+
+                const label = document.createElement('div');
+                label.className = 'folder-name';
+                label.textContent = name;
+                card.appendChild(label);
+
+                if (count !== null) {
+                    const badge = document.createElement('div');
+                    badge.className = 'folder-count';
+                    badge.textContent = count;
+                    card.appendChild(badge);
+                }
+
+                card.addEventListener('click', () => navigate(currentFolder, target));
+                els.grid.appendChild(card);
+            }
+
+            // Paginated image cards
             const totalPages = Math.ceil(allImages.length / PAGE_SIZE);
             const start = page * PAGE_SIZE;
             const end = Math.min(start + PAGE_SIZE, allImages.length);
+
+            if (allImages.length === 0 && allFolders.length === 0) {
+                els.grid.innerHTML = '<div class="col-span-full flex items-center justify-center text-zinc-600 text-xs uppercase tracking-widest p-8">No images here yet</div>';
+            }
 
             for (let i = start; i < end; i++) {
                 const img = allImages[i];
@@ -295,17 +377,18 @@
                 card.className = 'thumb-card';
 
                 const thumbImg = document.createElement('img');
-                thumbImg.src = `/view?filename=${encodeURIComponent(img.filename)}&subfolder=${encodeURIComponent(img.subfolder || '')}&type=${currentFolder}&t=${Date.now()}`;
+                thumbImg.src = thumbUrl(img.filename);
                 thumbImg.alt = img.filename;
                 thumbImg.loading = 'lazy';
+                thumbImg.decoding = 'async';
                 thumbImg.onerror = () => {
-                    console.error(`[Gallery] Failed to load image: ${thumbImg.src}`);
-                    thumbImg.style.display = 'none';
+                    console.error(`[Gallery] Failed to load thumb: ${thumbImg.src}`);
+                    card.style.display = 'none';
                 };
 
                 const label = document.createElement('div');
                 label.className = 'thumb-label';
-                label.textContent = img.filename.replace(/\.[^/.]+$/, '');  // strip extension
+                label.textContent = img.filename.replace(/\.[^/.]+$/, '');
 
                 const badge = document.createElement('div');
                 badge.className = `thumb-type-badge ${currentFolder}`;
@@ -320,11 +403,11 @@
         }
 
         function updatePagination(page, totalPages) {
+            if (!els.paginationBar) return;
             if (totalPages <= 1) {
                 els.paginationBar.style.display = 'none';
                 return;
             }
-
             els.paginationBar.style.display = 'flex';
             els.pageInfo.textContent = `Page ${page + 1} of ${totalPages}`;
             els.prevBtn.disabled = page === 0;
@@ -336,12 +419,13 @@
             if (page < 0 || page >= totalPages) return;
             currentPage = page;
             renderPage(currentPage);
+            els.grid.scrollTop = 0;
         }
 
         // --- MODAL ---
         async function openModal(image) {
-            els.modalImg.src = `/view?filename=${encodeURIComponent(image.filename)}&subfolder=${encodeURIComponent(image.subfolder || '')}&type=${currentFolder}&t=${Date.now()}`;
-            els.dlBtn.dataset.url = `/view?filename=${encodeURIComponent(image.filename)}&subfolder=${encodeURIComponent(image.subfolder || '')}&type=${currentFolder}&t=${Date.now()}`;
+            els.modalImg.src = viewUrl(image);
+            els.dlBtn.dataset.url = viewUrl(image);
             els.dlBtn.dataset.filename = image.filename;
 
             if (els.modalSpinner) els.modalSpinner.classList.add('show');
@@ -352,12 +436,11 @@
             let isFav = false;
             try { const favs = await getFavorites(); isFav = favs.includes(image.filename); } catch {}
             if (els.favToggleBtn) {
-                els.favToggleBtn.innerHTML = isFav
-                    ? `<svg class="w-3.5 h-3.5" fill="currentColor" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg> <span>REMOVE FROM FAVORITES</span>`
-                    : `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg> <span>ADD TO FAVORITES</span>`;
+                const star = isFav ? 'fill="currentColor" stroke="currentColor"' : 'fill="none" stroke="currentColor"';
+                els.favToggleBtn.innerHTML = `<svg class="w-3.5 h-3.5" ${star} viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976 2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538 1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976 2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg> <span>${isFav ? 'REMOVE FROM FAVORITES' : 'ADD TO FAVORITES'}</span>`;
             }
 
-            closeFavMenu();
+            closeGalleryModalZoom();
             els.modal.classList.add('active');
         }
 
@@ -367,15 +450,15 @@
             setTimeout(() => { els.modalImg.src = ''; }, 300);
         }
 
+        function closeGalleryModalZoom() { resetZoom(); }
+
         // --- DOWNLOAD ---
         async function downloadImage() {
             const url = els.dlBtn.dataset.url;
             if (!url) return;
-
             try {
                 const res = await fetch(url);
                 if (!res.ok) throw new Error(`Download failed: ${res.status}`);
-
                 const blob = await res.blob();
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(blob);
@@ -386,25 +469,6 @@
                 URL.revokeObjectURL(a.href);
             } catch (e) {
                 window.open(els.dlBtn.dataset.url, '_blank');
-            }
-        }
-
-        async function downloadImageFromGallery(image) {
-            const url = `/view?filename=${encodeURIComponent(image.filename)}&subfolder=${encodeURIComponent(image.subfolder || '')}&type=${currentFolder}&t=${Date.now()}`;
-
-            try {
-                const res = await fetch(url);
-                if (!res.ok) throw new Error(`Download failed: ${res.status}`);
-                const blob = await res.blob();
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = image.filename;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(a.href);
-            } catch (e) {
-                window.open(url, '_blank');
             }
         }
 
@@ -435,8 +499,7 @@
                 if (headerRes.ok) {
                     const headerEl = document.getElementById('shared-header');
                     if (headerEl) headerEl.innerHTML = await headerRes.text();
-                    
-                    // Mobile menu toggle
+
                     const mobileBtn = document.getElementById('mobile-menu-btn');
                     const dropdown = document.getElementById('mobile-menu-dropdown');
                     if (mobileBtn && dropdown) {
@@ -460,9 +523,6 @@
 
         // --- INIT ---
         async function init() {
-            els.btnOutput = document.getElementById('btn-output');
-            els.btnInput = document.getElementById('btn-input');
-
             els.prevBtn.addEventListener('click', () => goToPage(currentPage - 1));
             els.nextBtn.addEventListener('click', () => goToPage(currentPage + 1));
             els.closeBtn.addEventListener('click', closeGalleryModal);
@@ -474,7 +534,7 @@
                     if (!match) return;
                     const fname = decodeURIComponent(match[1]);
                     toggleFavorite({ filename: fname });
-                    openModal(allImages.find(img => img.filename === fname) || { filename: fname, subfolder: '', type: currentFolder });
+                    openModal(allImages.find(img => img.filename === fname) || { filename: fname, subfolder: currentPath, type: currentFolder });
                 });
             }
 
@@ -484,12 +544,17 @@
             });
             if (els.zoomResetBtn) els.zoomResetBtn.addEventListener('click', resetZoom);
 
-            if (els.btnOutput) els.btnOutput.addEventListener('click', () => switchFolder('output'));
-            if (els.btnInput) els.btnInput.addEventListener('click', () => switchFolder('input'));
+            if (els.btnOutput) els.btnOutput.addEventListener('click', () => navigate('output', ''));
+            if (els.btnInput) els.btnInput.addEventListener('click', () => navigate('input', ''));
+            if (els.btnRefresh) els.btnRefresh.addEventListener('click', () => {
+                listingCache.clear();
+                loadGallery();
+            });
 
             setupDoubleTapZoom();
             setupWheelZoom();
             setupKeyboard();
+            renderBreadcrumb();
             await loadGallery();
             await loadSharedComponents();
         }

@@ -3,9 +3,11 @@ import json
 import shutil
 import uuid
 import random
+import hashlib
 import server
 import time
 import execution
+from PIL import Image
 from aiohttp import web
 import folder_paths
 
@@ -16,9 +18,10 @@ WORKFLOWS_DIR = os.path.join(WEBROOT, "workflows")
 META_DIR = os.path.join(WORKFLOWS_DIR, "meta") 
 BACKUPS_DIR = os.path.join(WEBROOT, "backups")
 AUTOMATIONS_DIR = os.path.join(WEBROOT, "automations") 
+THUMBS_DIR = os.path.join(WEBROOT, "thumbs")
 OUTPUT_DIR = folder_paths.get_output_directory()
 
-for d in [WORKFLOWS_DIR, META_DIR, BACKUPS_DIR, AUTOMATIONS_DIR]:
+for d in [WORKFLOWS_DIR, META_DIR, BACKUPS_DIR, AUTOMATIONS_DIR, THUMBS_DIR]:
     if not os.path.exists(d): os.makedirs(d)
 
 print(f"### ComfyMini: Initializing...")
@@ -244,6 +247,8 @@ async def delete_workflow(request):
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
 
+IMAGE_EXTS = ('.png', '.jpg', '.jpeg', '.webp', '.gif')
+
 @server.PromptServer.instance.routes.get("/mini/files")
 async def list_files(request):
     folder_type = request.query.get("type", "output")  # "output" or "input"
@@ -264,12 +269,61 @@ async def list_files(request):
         for item in os.listdir(target_path):
             if item.startswith('.'): continue
             full_path = os.path.join(target_path, item)
-            if os.path.isdir(full_path): folders.append(item)
-            elif item.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.gif')):
+            if os.path.isdir(full_path):
+                # One shallow listdir per subfolder so folder tiles can show an item count.
+                try:
+                    count = sum(1 for f in os.listdir(full_path)
+                                if not f.startswith('.') and f.lower().endswith(IMAGE_EXTS))
+                except OSError:
+                    count = 0
+                folders.append({"name": item, "count": count})
+            elif item.lower().endswith(IMAGE_EXTS):
                 images.append({ "filename": item, "subfolder": subfolder, "type": folder_type })
-        folders.sort(); images.sort(key=lambda x: x['filename'], reverse=True)
+        folders.sort(key=lambda x: x["name"].lower()); images.sort(key=lambda x: x['filename'], reverse=True)
         return web.json_response({"path": subfolder, "folders": folders, "images": images})
     except Exception as e: return web.json_response({"error": str(e)}, status=500)
+
+@server.PromptServer.instance.routes.get("/mini/thumb")
+async def serve_thumb(request):
+    """Small cached WebP thumbnail so mobile grids don't download full-size images."""
+    filename = request.query.get("filename", "")
+    subfolder = request.query.get("path", "")
+    folder_type = request.query.get("type", "output")
+    try: size = int(request.query.get("size", "360"))
+    except ValueError: size = 360
+    size = max(64, min(size, 800))
+
+    if not filename or not filename.lower().endswith(IMAGE_EXTS):
+        return web.Response(status=400)
+
+    src_dir = folder_paths.get_input_directory() if folder_type == "input" else OUTPUT_DIR
+    target_path = os.path.abspath(os.path.join(src_dir, subfolder))
+    allowed_base = os.path.abspath(src_dir)
+    if not target_path.startswith(allowed_base): return web.Response(status=403)
+
+    src_path = os.path.join(target_path, os.path.basename(filename))
+    if not os.path.isfile(src_path): return web.Response(status=404)
+
+    try: mtime = os.path.getmtime(src_path)
+    except OSError: return web.Response(status=404)
+
+    key = hashlib.sha1(f"{folder_type}|{subfolder}|{filename}|{size}|{int(mtime)}".encode("utf-8")).hexdigest()
+    cache_path = os.path.join(THUMBS_DIR, f"{key}.webp")
+    if os.path.isfile(cache_path):
+        return web.FileResponse(cache_path, headers={"Cache-Control": "public, max-age=31536000, immutable"})
+
+    try:
+        with Image.open(src_path) as img:
+            img.thumbnail((size, size))
+            if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+                img = img.convert("RGBA")
+            else:
+                img = img.convert("RGB")
+            img.save(cache_path, "WEBP", quality=70)
+        return web.FileResponse(cache_path, headers={"Cache-Control": "public, max-age=31536000, immutable"})
+    except Exception as e:
+        print(f"[ComfyMini] Thumb generation failed for {filename}: {e}")
+        return web.Response(status=404)
 
 @server.PromptServer.instance.routes.post("/mini/save_workflow")
 async def save_active_workflow(request):
