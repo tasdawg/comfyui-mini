@@ -603,6 +603,19 @@ async function init() {
         // Snapshot the loaded graph so run() only uploads the edits you make.
         baselineWorkflow = JSON.parse(JSON.stringify(loadedWorkflow));
 
+        // --- GALLERY "SEND TO WORKFLOW": apply a pre-picked image to a LoadImage node ---
+        // Applied AFTER the baseline snapshot so run() treats it as an edit and
+        // the server persists it to the library workflow file.
+        const setImageNode = urlParams.get('set_image');
+        const setImageFile = urlParams.get('image');
+        if (setImageNode && setImageFile && loadedWorkflow[setImageNode] && loadedWorkflow[setImageNode].inputs) {
+            const ct = loadedWorkflow[setImageNode].class_type;
+            if (ct === 'LoadImage' || ct === 'LoadImageMask') {
+                loadedWorkflow[setImageNode].inputs.image = setImageFile;
+                console.log(`[Init] set_image: node ${setImageNode} -> ${setImageFile}`);
+            }
+        }
+
         // Debug Log
         console.log(`[DEBUG] Loaded ${specificFile || "Session"} keys:`, Object.keys(loadedWorkflow));
 
@@ -1687,7 +1700,7 @@ async function renderControls() {
                                 });
                                 if (bridgeRes.ok) {
                                     const bridgeData = await bridgeRes.json();
-                                    const newFile = bridgeData.file;
+                                    const newFile = bridgeData.filename;
                                     if (newFile) {
                                         node.inputs[key] = newFile;
                                         await populateImageSelect(selectStandalone, options4, newFile);

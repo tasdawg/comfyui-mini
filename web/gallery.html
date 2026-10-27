@@ -33,6 +33,14 @@
         .folder-name { font-size: 10px; font-weight: 600; color: #e4e4e7; max-width: 92%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .folder-count { position: absolute; top: 4px; right: 4px; padding: 2px 6px; border-radius: 999px; font-size: 8px; font-weight: 700; background: rgba(96, 165, 250, 0.15); color: #60a5fa; border: 1px solid rgba(96, 165, 250, 0.3); }
 
+        /* --- Send-to-workflow popup items --- */
+        .sendto-item { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 10px 12px; background: #121212; border: 1px solid #1f2937; border-radius: 8px; color: #d4d4d8; font-size: 11px; cursor: pointer; transition: all 150ms; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+        .sendto-item:hover { background: #1f2937; border-color: #3b82f6; color: #fff; }
+        .sendto-item:active { transform: scale(0.98); }
+        .sendto-item svg { width: 14px; height: 14px; color: #60a5fa; flex-shrink: 0; }
+        .sendto-item .sendto-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sendto-item .sendto-sub { font-size: 9px; color: #71717a; white-space: nowrap; flex-shrink: 0; }
+
         /* --- Breadcrumb path bar --- */
         #breadcrumb-bar { display: flex; align-items: center; gap: 2px; height: 30px; padding: 0 10px; border-bottom: 1px solid #1f2937; background: #0a0a0a; overflow-x: auto; scrollbar-width: none; flex-shrink: 0; }
         #breadcrumb-bar::-webkit-scrollbar { display: none; }
@@ -107,11 +115,30 @@
             <button id="zoom-toggle-btn" class="overlay-btn"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"></path></svg> ZOOM</button>
             <button id="zoom-reset-btn" class="overlay-btn" style="display:none;"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg> RESET</button>
             <button id="fav-toggle-btn" class="overlay-btn"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976 2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538 1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976 2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg> <span id="fav-btn-label">ADD TO FAVORITES</span></button>
+            <button id="sendto-btn" class="overlay-btn"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg> SEND TO WORKFLOW</button>
             <button id="dl-btn" class="overlay-btn primary"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg> DOWNLOAD</button>
             <button id="close-modal" class="overlay-btn"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg> CLOSE</button>
         </div>
     </div>
     <div id="zoom-badge">1.0x</div>
+
+    <!-- Send to Workflow popup -->
+    <div id="sendto-overlay" style="display:none;" class="fixed inset-0 z-[103] bg-black/70 backdrop-blur-[2px]">
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92vw] max-w-sm max-h-[70vh] flex flex-col bg-[#0d0d0f] border border-[#27272a] rounded-xl shadow-2xl overflow-hidden">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-[#1f2937] shrink-0">
+                <span id="sendto-title" class="text-[11px] font-bold uppercase tracking-wider text-zinc-300">Send to workflow</span>
+                <button id="sendto-close" class="text-zinc-500 hover:text-white p-1 transition-colors" title="Close">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <button id="sendto-back" style="display:none;" class="flex items-center gap-2 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500 hover:text-white hover:bg-[#1f2937] transition-colors border-b border-[#1f2937] shrink-0">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                All workflows
+            </button>
+            <div id="sendto-status" class="text-center text-zinc-500 text-[10px] py-5 uppercase tracking-wider shrink-0"></div>
+            <div id="sendto-list" class="overflow-y-auto p-2 flex-1 min-h-0 flex flex-col gap-1"></div>
+        </div>
+    </div>
 
     <script type="module">
         // --- STATE ---
@@ -123,6 +150,8 @@
         let allImages = [];
         let allFolders = [];
         const listingCache = new Map(); // "type|path" -> {folders, images}
+        let modalImage = null;         // image currently shown in the modal
+        let sendtoWorkflow = null;     // workflow filename selected in the send-to popup
 
         // --- HELPERS ---
         const rootLabel = () => currentFolder.toUpperCase();
@@ -163,7 +192,14 @@
             nextBtn: document.getElementById('next-btn'),
             btnOutput: document.getElementById('btn-output'),
             btnInput: document.getElementById('btn-input'),
-            btnRefresh: document.getElementById('btn-refresh')
+            btnRefresh: document.getElementById('btn-refresh'),
+            sendtoBtn: document.getElementById('sendto-btn'),
+            sendtoOverlay: document.getElementById('sendto-overlay'),
+            sendtoTitle: document.getElementById('sendto-title'),
+            sendtoClose: document.getElementById('sendto-close'),
+            sendtoBack: document.getElementById('sendto-back'),
+            sendtoList: document.getElementById('sendto-list'),
+            sendtoStatus: document.getElementById('sendto-status')
         };
 
         // --- ZOOM STATE (double-tap + wheel zoom) ---
@@ -424,6 +460,7 @@
 
         // --- MODAL ---
         async function openModal(image) {
+            modalImage = image;
             els.modalImg.src = viewUrl(image);
             els.dlBtn.dataset.url = viewUrl(image);
             els.dlBtn.dataset.filename = image.filename;
@@ -472,9 +509,108 @@
             }
         }
 
+        // --- SEND TO WORKFLOW ---
+        function openSendTo() {
+            if (!modalImage) return;
+            sendtoWorkflow = null;
+            els.sendtoOverlay.style.display = 'block';
+            renderSendtoWorkflows();
+        }
+
+        function closeSendTo() {
+            els.sendtoOverlay.style.display = 'none';
+            sendtoWorkflow = null;
+        }
+
+        function sendtoItem(icon, label, sub, onclick) {
+            const b = document.createElement('button');
+            b.className = 'sendto-item';
+            b.innerHTML = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">${icon}</svg><span class="sendto-label"></span><span class="sendto-sub">${sub || ''}</span>`;
+            b.querySelector('.sendto-label').textContent = label;
+            b.addEventListener('click', onclick);
+            return b;
+        }
+
+        async function renderSendtoWorkflows() {
+            els.sendtoTitle.textContent = 'Send to workflow';
+            els.sendtoBack.style.display = 'none';
+            els.sendtoList.innerHTML = '';
+            els.sendtoStatus.textContent = 'Loading workflows…';
+            try {
+                const res = await fetch('/mini/list_workflows');
+                const data = await res.json();
+                const files = Array.isArray(data.workflows) ? data.workflows : [];
+                els.sendtoStatus.textContent = files.length ? '' : 'No workflows found';
+                for (const f of files) {
+                    els.sendtoList.appendChild(sendtoItem(
+                        '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>',
+                        f.replace(/\.json$/, ''), '',
+                        () => renderSendtoNodes(f)
+                    ));
+                }
+            } catch (e) {
+                els.sendtoStatus.textContent = 'Failed to load workflows';
+                console.error('[Gallery] Send-to list error:', e);
+            }
+        }
+
+        async function renderSendtoNodes(filename) {
+            sendtoWorkflow = filename;
+            els.sendtoTitle.textContent = filename.replace(/\.json$/, '');
+            els.sendtoBack.style.display = 'flex';
+            els.sendtoList.innerHTML = '';
+            els.sendtoStatus.textContent = 'Loading LoadImage nodes…';
+            try {
+                const res = await fetch(`/mini/get_workflow?filename=${encodeURIComponent(filename)}`);
+                const wf = await res.json();
+                if (wf.error) throw new Error(wf.error);
+                const items = Object.entries(wf)
+                    .filter(([id, n]) => n && (n.class_type === 'LoadImage' || n.class_type === 'LoadImageMask'))
+                    .sort((a, b) => String(a[0]).localeCompare(String(b[0]), undefined, { numeric: true }));
+                els.sendtoStatus.textContent = items.length ? '' : 'No LoadImage nodes in this workflow';
+                for (const [id, node] of items) {
+                    const title = node._meta && node._meta.title ? node._meta.title : (node.class_type + ' #' + id);
+                    const current = node.inputs && node.inputs.image ? node.inputs.image.replace(/\.[^/.]+$/, '') : '';
+                    els.sendtoList.appendChild(sendtoItem(
+                        '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>',
+                        title, current,
+                        () => doSendTo(filename, id)
+                    ));
+                }
+            } catch (e) {
+                els.sendtoStatus.textContent = 'Failed to load nodes';
+                console.error('[Gallery] Send-to nodes error:', e);
+            }
+        }
+
+        async function doSendTo(filename, nodeId) {
+            if (!modalImage) return;
+            els.sendtoStatus.textContent = 'Loading…';
+            let imgFile = modalImage.filename;
+            // Output images live in the Output folder; LoadImage reads from Input, so bridge first.
+            if (modalImage.type === 'output') {
+                try {
+                    const res = await fetch('/mini/bridge_image', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ filename: imgFile, subfolder: modalImage.subfolder || '', type: 'output' })
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        imgFile = data.filename || imgFile;
+                    } else { console.error('[Gallery] Bridge failed:', res.status); }
+                } catch (e) { console.error('[Gallery] Bridge error:', e.message); }
+            }
+            window.location.href = `/mini/run?file=${encodeURIComponent(filename)}&set_image=${encodeURIComponent(nodeId)}&image=${encodeURIComponent(imgFile)}`;
+        }
+
         // --- KEYBOARD SHORTCUTS ---
         function setupKeyboard() {
             document.addEventListener('keydown', (e) => {
+                if (els.sendtoOverlay && els.sendtoOverlay.style.display !== 'none') {
+                    if (e.key === 'Escape') closeSendTo();
+                    return;
+                }
                 if (!els.modal.classList.contains('active')) return;
                 if (e.key === 'Escape') closeGalleryModal();
                 if (e.key === '+' || e.key === '=') setZoom(zoomScale * 1.3, window.innerWidth / 2, window.innerHeight / 2);
@@ -549,6 +685,13 @@
             if (els.btnRefresh) els.btnRefresh.addEventListener('click', () => {
                 listingCache.clear();
                 loadGallery();
+            });
+
+            if (els.sendtoBtn) els.sendtoBtn.addEventListener('click', openSendTo);
+            if (els.sendtoClose) els.sendtoClose.addEventListener('click', closeSendTo);
+            if (els.sendtoBack) els.sendtoBack.addEventListener('click', renderSendtoWorkflows);
+            if (els.sendtoOverlay) els.sendtoOverlay.addEventListener('click', (e) => {
+                if (e.target === els.sendtoOverlay) closeSendTo();
             });
 
             setupDoubleTapZoom();
