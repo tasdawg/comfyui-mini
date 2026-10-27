@@ -1946,7 +1946,16 @@ async function run() {
             body: JSON.stringify(payload)
         });
 
-        if (!res.ok) throw new Error(`Server Error ${res.status}`);
+        if (!res.ok) {
+            let detail = `Server Error ${res.status}`;
+            try {
+                const errData = await res.json();
+                const err = errData.error;
+                if (typeof err === 'string' && err) detail = err;
+                else if (err && typeof err === 'object' && err.message) detail = err.message;
+            } catch (_) { /* non-JSON body, keep status text */ }
+            throw new Error(detail);
+        }
 
         const data = await res.json();
         logTerminal(`Prompt queued (id: ${data.prompt_id})`, "info");

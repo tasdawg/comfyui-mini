@@ -457,7 +457,7 @@ async def mini_run(request):
         # 8. Validate and queue IN-PROCESS (same call /prompt makes, no HTTP).
         prompt_id = str(uuid.uuid4())
         ps = server.PromptServer.instance
-        valid = await execution.validate_prompt(prompt_id, api_prompt)
+        valid = await execution.validate_prompt(prompt_id, api_prompt, None)
         if not valid[0]:
             return web.json_response({"error": valid[1], "node_errors": valid[3]}, status=400)
 
