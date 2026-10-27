@@ -8,6 +8,7 @@ const els = {
     editBtn: document.getElementById('edit-btn'),
     saveLayoutBtn: document.getElementById('save-layout-btn'),
     result: document.getElementById('result-image'),
+    preview: document.getElementById('preview-image'),
     loading: document.getElementById('loading-overlay'),
     progress: document.getElementById('progress-text'),
     dot: document.getElementById('status-dot'),
@@ -24,6 +25,7 @@ const els = {
 
 let loadedWorkflow = {};
 let baselineWorkflow = {};   // Snapshot at load time; run() diffs against this
+let previewUrl = null;       // Object URL of the latest live sampling preview
 let loadedLayout = [];
 let objectInfo = {};
 let fooocusStyles = [];
@@ -839,16 +841,27 @@ function connectWS() {
     };
     socket.onmessage = (e) => {
         if (e.data instanceof ArrayBuffer) {
+            // Live sampling preview (UNENCODED_PREVIEW_IMAGE) — show it in the preview
+            // layer while the progress % updates on top of it.
             const blob = new Blob([e.data.slice(8)], { type: 'image/jpeg' });
-            if(els.result) {
-                els.result.src = URL.createObjectURL(blob);
-                els.result.classList.remove('opacity-50');
+            const url = URL.createObjectURL(blob);
+            if (els.preview) {
+                if (previewUrl) URL.revokeObjectURL(previewUrl);
+                previewUrl = url;
+                els.preview.src = url;
+                els.preview.classList.remove('hidden');
                 if(els.empty) els.empty.classList.add('hidden');
             }
             return;
         }
         try { handleMsg(JSON.parse(e.data)); } catch (e) {}
     };
+}
+
+// Hide the live sampling preview and free its object URL (the real result takes over).
+function clearPreview() {
+    if (els.preview) els.preview.classList.add('hidden');
+    if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null; }
 }
 
 // --- UPDATED: Universal Dynamic Updater & Auto-Saver ---
@@ -977,6 +990,7 @@ async function handleMsg(msg) {
         if(els.loading) els.loading.classList.add('hidden');
         if(els.genBtn) els.genBtn.classList.remove('hidden');
         if(els.stopBtn) els.stopBtn.classList.add('hidden');
+        clearPreview();
         
         // --- TRIGGER HISTORY FETCH ---
         if (currentPromptId) {
@@ -999,6 +1013,7 @@ async function handleMsg(msg) {
                 els.result.classList.remove('opacity-50');
                 if(els.empty) els.empty.classList.add('hidden');
             }
+            clearPreview();
         }
 
         // 2. Handle Real-time Text Updates (Show Text, etc.)
@@ -1892,6 +1907,7 @@ async function run() {
     if(els.stopBtn) els.stopBtn.classList.remove('hidden');
     if(els.loading) els.loading.classList.remove('hidden');
     if(els.progress) els.progress.innerText = '0%';
+    clearPreview();
 
     await saveGroups();
 

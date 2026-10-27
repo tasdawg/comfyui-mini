@@ -56,10 +56,11 @@
     <main class="flex-1 overflow-y-auto p-2 pb-[8rem] relative w-full space-y-2" id="main-scroll">
         <div class="compact-card min-h-[300px] flex items-center justify-center relative overflow-hidden group">
             <img id="result-image" class="max-h-[50vh] w-full object-contain opacity-50 transition-opacity cursor-pointer" src="" alt="">
+            <img id="preview-image" class="absolute inset-0 w-full h-full object-contain hidden pointer-events-none" src="" alt="Live preview">
             <div id="empty-state" class="absolute inset-0 flex flex-col items-center justify-center text-zinc-700 pointer-events-none"><span class="text-[10px] uppercase tracking-widest opacity-60">Ready</span></div>
-            <div id="loading-overlay" class="absolute inset-0 bg-black/80 flex flex-col items-center justify-center hidden z-10 pointer-events-none">
+            <div id="loading-overlay" class="absolute inset-0 bg-black/20 flex flex-col items-center justify-center hidden z-10 pointer-events-none">
                 <div class="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-2"></div>
-                <span id="progress-text" class="text-[10px] font-mono text-blue-400">0%</span>
+                <span id="progress-text" class="text-[12px] font-mono font-bold text-blue-400 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">0%</span>
             </div>
         </div>
         <div id="controls-container" class="space-y-2"></div>
