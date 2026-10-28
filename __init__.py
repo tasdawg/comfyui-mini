@@ -464,6 +464,12 @@ async def mini_run(request):
         outputs_to_execute = valid[2]
         extra_data = { "extra_pnginfo": { "workflow": meta_workflow } }
         if client_id: extra_data["client_id"] = client_id
+        # The CLI default preview method is NoPreviews. The standard frontend
+        # sends preview_method (default "auto") in extra_data, which
+        # execute_async feeds to set_preview_method(). We bypass that frontend,
+        # so supply it here or KSampler emits no preview bytes at all and the
+        # live preview never appears. "auto" -> Latent2RGB, same as the web UI.
+        extra_data.setdefault("preview_method", body.get("preview_method") or "auto")
 
         sensitive = {}
         for k in execution.SENSITIVE_EXTRA_DATA_KEYS:
