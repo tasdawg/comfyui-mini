@@ -51,7 +51,9 @@ async function loadSharedComponents() {
                     }
                 });
                 document.addEventListener('click', (e) => {
-                    if (!dropdown.contains(e.target) && e.target !== mobileBtn) {
+                    // e.target is often the <svg>/<path> inside the button, not the
+                    // button itself — so test containment, not identity.
+                    if (!dropdown.contains(e.target) && !mobileBtn.contains(e.target)) {
                         dropdown.style.display = 'none';
                     }
                 });
