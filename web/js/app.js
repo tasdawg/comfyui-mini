@@ -20,7 +20,14 @@ const els = {
     termToggle: document.getElementById('terminal-toggle'),
     wsStatusDot: document.getElementById('ws-status-dot'),
     termLog: document.getElementById('terminal-log'),
-    termClearBtn: document.getElementById('term-clear-btn')
+    termClearBtn: document.getElementById('term-clear-btn'),
+    compareBtn: document.getElementById('compare-btn'),
+    compareModal: document.getElementById('compare-modal'),
+    compareNew: document.getElementById('compare-new'),
+    compareOld: document.getElementById('compare-old'),
+    compareSlider: document.getElementById('compare-slider'),
+    compareDivider: document.getElementById('compare-divider'),
+    compareClose: document.getElementById('compare-close')
 };
 
 let loadedWorkflow = {};
@@ -714,6 +721,7 @@ async function init() {
     if(els.editBtn) els.editBtn.onclick = toggleEditMode;
     if(els.saveLayoutBtn) els.saveLayoutBtn.onclick = saveLayout;
     setupMainPageModal();
+    setupCompareOverlay();
 
     // --- Terminal Toggle & Clear ---
     if (els.termToggle) {
@@ -868,6 +876,23 @@ function setupMainPageModal() {
     };
 }
 
+function setupCompareOverlay() {
+    // Only runs if on the main page (compare lives inside the result card)
+    if (!els.result) return;
+
+    if (els.compareBtn) els.compareBtn.onclick = openCompare;
+    if (els.compareSlider) els.compareSlider.addEventListener('input', updateCompareSplit);
+    if (els.compareClose) els.compareClose.onclick = closeCompare;
+    if (els.compareModal) els.compareModal.addEventListener('click', (e) => {
+        if (e.target === els.compareModal) closeCompare();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && els.compareModal && !els.compareModal.classList.contains('hidden')) closeCompare();
+    });
+
+    refreshCompareButton();
+}
+
 // --- WEBSOCKET & HANDLERS ---
 function connectWS() {
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -896,6 +921,7 @@ function connectWS() {
                 els.preview.src = url;
                 els.preview.classList.remove('hidden');
                 if(els.empty) els.empty.classList.add('hidden');
+                hideCompareButton();
             }
             return;
         }
@@ -907,6 +933,60 @@ function connectWS() {
 function clearPreview() {
     if (els.preview) els.preview.classList.add('hidden');
     if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null; }
+}
+
+// --- COMPARE OVERLAY (new result vs workflow input image) ---
+// Slider value = how much of the OLD image is revealed from the right edge:
+// 0 = entirely new, 100 = entirely old, 50 = left half new / right half old.
+// The input is dir=rtl so the native thumb sits on the split line itself.
+function getInputImageSrc() {
+    let lastLoad = null;
+    for (const node of Object.values(loadedWorkflow)) {
+        if (node && (node.class_type === 'LoadImage' || node.class_type === 'LoadImageMask') && node.inputs?.image) {
+            lastLoad = node;
+        }
+    }
+    if (!lastLoad) return null;
+    return `/view?filename=${encodeURIComponent(lastLoad.inputs.image)}&type=input&t=${Date.now()}`;
+}
+
+function updateCompareSplit() {
+    if (!els.compareSlider) return;
+    const v = Number(els.compareSlider.value);
+    if (els.compareNew) els.compareNew.style.clipPath = `inset(0 ${v}% 0 0)`;
+    if (els.compareDivider) els.compareDivider.style.left = `${100 - v}%`;
+    if (els.compareSlider) els.compareSlider.style.background = `linear-gradient(to left, #3b82f6 ${v}%, #27272a ${v}%)`;
+}
+
+function openCompare() {
+    if (!els.compareModal || !els.compareNew || !els.compareOld) return;
+    const newSrc = els.result?.src;
+    const oldSrc = getInputImageSrc();
+    if (!newSrc || !oldSrc) return;
+    els.compareNew.src = newSrc;
+    els.compareOld.src = oldSrc;
+    els.compareSlider.value = 50;
+    updateCompareSplit();
+    els.compareModal.classList.remove('hidden');
+    els.compareModal.classList.add('flex');
+    setTimeout(() => els.compareModal.classList.remove('opacity-0'), 10);
+}
+
+function closeCompare() {
+    if (!els.compareModal || els.compareModal.classList.contains('hidden')) return;
+    els.compareModal.classList.add('opacity-0');
+    setTimeout(() => { els.compareModal.classList.add('hidden'); els.compareModal.classList.remove('flex'); }, 300);
+}
+
+// Show the compare button only when both a finished result and an input image exist.
+function refreshCompareButton() {
+    if (!els.compareBtn) return;
+    const ready = !!els.result?.src && !!getInputImageSrc();
+    els.compareBtn.classList.toggle('hidden', !ready);
+}
+
+function hideCompareButton() {
+    if (els.compareBtn) els.compareBtn.classList.add('hidden');
 }
 
 // --- UPDATED: Universal Dynamic Updater & Auto-Saver ---
@@ -1036,6 +1116,7 @@ async function handleMsg(msg) {
         if(els.genBtn) els.genBtn.classList.remove('hidden');
         if(els.stopBtn) els.stopBtn.classList.add('hidden');
         clearPreview();
+        refreshCompareButton();
         
         // --- TRIGGER HISTORY FETCH ---
         if (currentPromptId) {
@@ -1059,6 +1140,7 @@ async function handleMsg(msg) {
                 if(els.empty) els.empty.classList.add('hidden');
             }
             clearPreview();
+            refreshCompareButton();
         }
 
         // 2. Handle Real-time Text Updates (Show Text, etc.)
@@ -1921,6 +2003,8 @@ async function run() {
     if(els.loading) els.loading.classList.remove('hidden');
     if(els.progress) els.progress.innerText = '0%';
     clearPreview();
+    closeCompare();
+    hideCompareButton();
 
     await saveGroups();
 

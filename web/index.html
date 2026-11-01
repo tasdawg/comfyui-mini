@@ -30,6 +30,13 @@
         #terminal-toggle:hover { background: #18181b; color: #a1a1aa; }
         .toggle-chevron svg { width: 14px; height: 14px; transition: transform 200ms ease; will-change: transform; }
         @media (max-height: 500px) { #terminal-container { display: none !important; } }
+
+        /* Compare slider — theme-matched */
+        .compare-slider { -webkit-appearance: none; appearance: none; height: 4px; border-radius: 2px; background: #27272a; outline: none; cursor: pointer; touch-action: none; }
+        .compare-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #ffffff; border: 2px solid #3b82f6; box-shadow: 0 1px 4px rgba(0,0,0,.6); cursor: grab; }
+        .compare-slider::-webkit-slider-thumb:active { cursor: grabbing; background: #dbeafe; }
+        .compare-slider::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 2px solid #3b82f6; box-shadow: 0 1px 4px rgba(0,0,0,.6); cursor: grab; }
+        .compare-slider::-moz-range-track { height: 4px; border-radius: 2px; background: #27272a; }
     </style>
 </head>
 <body class="w-full flex flex-col overflow-hidden text-xs">
@@ -62,6 +69,10 @@
                 <div class="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-2"></div>
                 <span id="progress-text" class="text-[12px] font-mono font-bold text-blue-400 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">0%</span>
             </div>
+            <button id="compare-btn" class="absolute bottom-2 right-2 z-20 hidden bg-zinc-800/80 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 hover:text-white uppercase tracking-wider rounded px-2 py-1 shadow transition-colors flex items-center gap-1 backdrop-blur-sm" title="Compare with input image">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4M16 17H4m0 0l4 4m-4-4l4-4"></path></svg>
+                Compare
+            </button>
         </div>
         <div id="controls-container" class="space-y-2"></div>
     </main>
@@ -69,6 +80,30 @@
     <div id="image-modal" class="fixed inset-0 z-[100] bg-black/95 backdrop-blur hidden flex items-center justify-center p-2 opacity-0 transition-opacity duration-300">
         <button id="close-modal" class="absolute top-4 right-4 z-[101] bg-white/10 hover:bg-white/20 text-white rounded-full p-2 transition-colors"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
         <img id="modal-image" class="max-w-full max-h-full object-contain" src="" alt="Fullscreen">
+    </div>
+
+    <!-- Compare overlay: new result (left of split) vs workflow input image (right of split) -->
+    <div id="compare-modal" class="fixed inset-0 z-[100] bg-black/95 backdrop-blur hidden flex-col opacity-0 transition-opacity duration-300">
+        <div class="flex items-center justify-between px-4 h-11 shrink-0 border-b border-[#27272a] bg-[#09090b]">
+            <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-widest">Compare — New vs Input</span>
+            <button id="compare-close" class="bg-white/10 hover:bg-white/20 text-white rounded-full p-2 transition-colors" title="Close compare"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+        </div>
+        <div class="relative flex-1 overflow-hidden select-none">
+            <img id="compare-old" class="absolute inset-0 w-full h-full object-contain" src="" alt="Input image">
+            <img id="compare-new" class="absolute inset-0 w-full h-full object-contain" src="" alt="New image" style="clip-path: inset(0 50% 0 0)">
+            <div id="compare-divider" class="absolute top-0 bottom-0 w-[2px] bg-blue-500 z-10 pointer-events-none" style="left: 50%">
+                <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white border-2 border-blue-500 shadow-lg flex items-center justify-center">
+                    <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4M8 15l4 4 4-4"></path></svg>
+                </div>
+            </div>
+            <span class="absolute top-2 left-2 z-10 text-[9px] font-bold text-blue-300 uppercase tracking-widest bg-blue-500/10 rounded px-1.5 py-0.5 pointer-events-none">New</span>
+            <span class="absolute top-2 right-2 z-10 text-[9px] font-bold text-zinc-400 uppercase tracking-widest bg-zinc-800/60 rounded px-1.5 py-0.5 pointer-events-none">Old</span>
+        </div>
+        <div class="shrink-0 px-4 py-3 border-t border-[#27272a] bg-[#09090b] flex items-center gap-3">
+            <span class="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Old</span>
+            <input id="compare-slider" type="range" min="0" max="100" value="50" dir="rtl" class="compare-slider flex-1" title="Drag to compare">
+            <span class="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">New</span>
+        </div>
     </div>
 
     <!-- Hidden Input for Image Upload -->
