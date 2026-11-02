@@ -111,6 +111,13 @@
 
     <div id="shared-footer"></div>
 
+    <!-- Floating live-preview: appears at the top of the content while a generation
+         is running and the main preview has scrolled out of view. Tap to jump back. -->
+    <button id="preview-minimap" class="fixed z-[60] hidden w-[30px] h-[42px] overflow-hidden rounded-md border-2 border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)] bg-black touch-manipulation active:scale-90 transition-transform" style="top: 56px; left: 8px;" title="Generation in progress — tap to return to preview" aria-label="Generation in progress. Tap to return to preview.">
+        <img id="minimap-img" class="w-full h-full object-cover" src="" alt="Live generation preview">
+        <span class="absolute top-1 left-1 w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
+    </button>
+
     <script type="module" src="/mini/js/app.js"></script>
 </body>
 </html>

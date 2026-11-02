@@ -28,7 +28,10 @@ const els = {
     compareSlider: document.getElementById('compare-slider'),
     compareDivider: document.getElementById('compare-divider'),
     compareHandle: document.getElementById('compare-handle'),
-    compareClose: document.getElementById('compare-close')
+    compareClose: document.getElementById('compare-close'),
+    minimap: document.getElementById('preview-minimap'),
+    minimapImg: document.getElementById('minimap-img'),
+    mainScroll: document.getElementById('main-scroll')
 };
 
 let loadedWorkflow = {};
@@ -40,6 +43,7 @@ let fooocusStyles = [];
 let clientId = ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
 let socket = null;
 let currentPromptId = null;
+let previewCard = null;   // the main preview card at the top of #main-scroll
 
 // --- Terminal Console State ---
 const terminalMaxLines = 300;
@@ -723,6 +727,7 @@ async function init() {
     if(els.saveLayoutBtn) els.saveLayoutBtn.onclick = saveLayout;
     setupMainPageModal();
     setupCompareOverlay();
+    setupPreviewMinimap();
 
     // --- Terminal Toggle & Clear ---
     if (els.termToggle) {
@@ -942,9 +947,11 @@ function connectWS() {
                 if (previewUrl) URL.revokeObjectURL(previewUrl);
                 previewUrl = url;
                 els.preview.src = url;
+                if (els.minimapImg) els.minimapImg.src = url;   // keep the floating preview in sync
                 els.preview.classList.remove('hidden');
                 if(els.empty) els.empty.classList.add('hidden');
                 hideCompareButton();
+                updateMinimap();
             }
             return;
         }
@@ -956,6 +963,42 @@ function connectWS() {
 function clearPreview() {
     if (els.preview) els.preview.classList.add('hidden');
     if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null; }
+}
+
+// --- FLOATING LIVE-PREVIEW (top of screen while a generation runs) ---
+// Pinned just under the headers. Only visible when a generation is in progress
+// (loading-overlay showing) AND the main preview card has scrolled out of view.
+function positionMinimap() {
+    if (!els.minimap || !els.mainScroll) return;
+    const top = els.mainScroll.getBoundingClientRect().top + 6;
+    els.minimap.style.top = Math.max(0, top) + 'px';
+}
+function updateMinimap() {
+    if (!els.minimap || !els.mainScroll) return;
+    const generating = els.loading && !els.loading.classList.contains('hidden');
+    const threshold = previewCard
+        ? previewCard.offsetTop + previewCard.offsetHeight - 24   // ~fully scrolled away
+        : 300;
+    const scrolledAway = els.mainScroll.scrollTop >= threshold;
+    els.minimap.classList.toggle('hidden', !(generating && scrolledAway));
+}
+function setupPreviewMinimap() {
+    if (!els.minimap || !els.mainScroll) return;
+    previewCard = document.querySelector('#main-scroll > .compact-card');
+    positionMinimap();
+    els.minimap.addEventListener('click', () => {
+        els.mainScroll.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    els.mainScroll.addEventListener('scroll', updateMinimap, { passive: true });
+    // The loading overlay is the single source of truth for "generation in
+    // progress": it is shown in run() and hidden on finish/fail/interrupt, so
+    // watching its class keeps the minimap in sync no matter which path fires.
+    if (els.loading) {
+        new MutationObserver(updateMinimap)
+            .observe(els.loading, { attributes: true, attributeFilter: ['class'] });
+    }
+    window.addEventListener('resize', () => { positionMinimap(); updateMinimap(); });
+    updateMinimap();
 }
 
 // --- COMPARE OVERLAY (new result vs workflow input image) ---
