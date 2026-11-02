@@ -979,9 +979,11 @@ function closeCompare() {
 }
 
 // Show the compare button only when both a finished result and an input image exist.
+// Use the src ATTRIBUTE — an empty src would otherwise resolve to the page URL.
 function refreshCompareButton() {
     if (!els.compareBtn) return;
-    const ready = !!els.result?.src && !!getInputImageSrc();
+    const hasResult = !!(els.result && els.result.getAttribute('src'));
+    const ready = hasResult && !!getInputImageSrc();
     els.compareBtn.classList.toggle('hidden', !ready);
 }
 
