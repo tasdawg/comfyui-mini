@@ -1111,7 +1111,12 @@ async function useAsReference() {
                 type: 'output'
             })
         });
-        if (!res.ok) throw new Error('Server error ' + res.status);
+        if (!res.ok) {
+            // A 404 means the running server has a stale comfyui-mini module that
+            // predates the /mini/bridge_image endpoint — a code change needs a restart.
+            if (res.status === 404) throw new Error('bridge_image endpoint not found — the running ComfyUI has a stale module. Restart ComfyUI and try again.');
+            throw new Error('Server error ' + res.status);
+        }
         const data = await res.json();
         const newFile = data.filename;
         if (!newFile) throw new Error('Bridge returned no filename.');
