@@ -923,7 +923,10 @@ function setupCompareDrag() {
     divider.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         dragging = true;
-        if (divider.setPointerCapture) divider.setPointerCapture(e.pointerId);
+        // Keep receiving moves even if the finger leaves the strip. A real touch has an
+        // active pointer so this succeeds; wrap it so a tap still jumps if capture is
+        // unavailable (some browsers, synthetic events).
+        try { if (divider.setPointerCapture) divider.setPointerCapture(e.pointerId); } catch (_) {}
         apply(e.clientX); // a tap jumps the split to the pressed x
     });
     divider.addEventListener('pointermove', (e) => {
