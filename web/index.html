@@ -69,10 +69,16 @@
                 <div class="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-2"></div>
                 <span id="progress-text" class="text-[12px] font-mono font-bold text-blue-400 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">0%</span>
             </div>
-            <button id="compare-btn" class="absolute bottom-2 right-2 z-20 hidden bg-zinc-800/80 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 hover:text-white uppercase tracking-wider rounded px-2 py-1 shadow transition-colors flex items-center gap-1 backdrop-blur-sm" title="Compare with input image">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4M16 17H4m0 0l4 4m-4-4l4-4"></path></svg>
-                Compare
-            </button>
+            <div class="absolute bottom-2 right-2 z-20 flex gap-1.5">
+                <button id="reference-btn" class="hidden bg-blue-600/90 hover:bg-blue-500 text-[10px] font-bold text-white uppercase tracking-wider rounded px-2 py-1 shadow transition-colors flex items-center gap-1 backdrop-blur-sm" title="Use the generated image as the input image (feed it back in to keep editing)">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 010 5.656l-3 3a4 4 0 01-5.656-5.656l1.5-1.5M10.172 13.828a4 4 0 010-5.656l3-3a4 4 0 015.656 5.656l-1.5 1.5"></path></svg>
+                    Reference
+                </button>
+                <button id="compare-btn" class="hidden bg-zinc-800/80 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 hover:text-white uppercase tracking-wider rounded px-2 py-1 shadow transition-colors flex items-center gap-1 backdrop-blur-sm" title="Compare with input image">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4M16 17H4m0 0l4 4m-4-4l4-4"></path></svg>
+                    Compare
+                </button>
+            </div>
         </div>
         <div id="controls-container" class="space-y-2"></div>
     </main>

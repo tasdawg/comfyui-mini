@@ -22,6 +22,7 @@ const els = {
     termLog: document.getElementById('terminal-log'),
     termClearBtn: document.getElementById('term-clear-btn'),
     compareBtn: document.getElementById('compare-btn'),
+    referenceBtn: document.getElementById('reference-btn'),
     compareModal: document.getElementById('compare-modal'),
     compareNew: document.getElementById('compare-new'),
     compareOld: document.getElementById('compare-old'),
@@ -44,6 +45,8 @@ let clientId = ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ crypto.g
 let socket = null;
 let currentPromptId = null;
 let previewCard = null;   // the main preview card at the top of #main-scroll
+let lastResultImage = null; // {filename, subfolder, type} of the most recent generated image
+let referenceNodeId = null; // id of the LoadImage node currently acting as a generated-image reference
 
 // --- Terminal Console State ---
 const terminalMaxLines = 300;
@@ -812,6 +815,9 @@ export function handleImageUpload(nodeId, inputKey, statusElement, inputElement,
                     loadedWorkflow[nodeId].inputs[inputKey] = filename;
                 }
 
+                // A manual upload replaces the generated reference image.
+                clearReferenceIf(nodeId);
+
                 // Update thumbnail on the node card (standalone)
                 const cardEl = inputElement.closest('.compact-card');
                 if (cardEl && !cardEl.dataset.groupId && (loadedWorkflow[nodeId]?.class_type === "LoadImage" || loadedWorkflow[nodeId]?.class_type === "LoadImageMask")) {
@@ -887,6 +893,7 @@ function setupCompareOverlay() {
     if (!els.result) return;
 
     if (els.compareBtn) els.compareBtn.onclick = openCompare;
+    if (els.referenceBtn) els.referenceBtn.onclick = useAsReference;
     if (els.compareSlider) els.compareSlider.addEventListener('input', updateCompareSplit);
     if (els.compareClose) els.compareClose.onclick = closeCompare;
 
@@ -1005,15 +1012,23 @@ function setupPreviewMinimap() {
 // Slider value = how much of the OLD image is revealed from the right edge:
 // 0 = entirely new, 100 = entirely old, 50 = left half new / right half old.
 // The input is dir=rtl so the native thumb sits on the split line itself.
-function getInputImageSrc() {
-    let lastLoad = null;
-    for (const node of Object.values(loadedWorkflow)) {
+// The LoadImage/LoadImageMask node the workflow feeds its input image through
+// (the last one that has an image set). Used by both the compare overlay and the
+// "use as reference" action so they target the same node.
+function findInputImageNode() {
+    let lastNode = null, lastId = null;
+    for (const [id, node] of Object.entries(loadedWorkflow)) {
         if (node && (node.class_type === 'LoadImage' || node.class_type === 'LoadImageMask') && node.inputs?.image) {
-            lastLoad = node;
+            lastNode = node; lastId = id;
         }
     }
-    if (!lastLoad) return null;
-    return `/view?filename=${encodeURIComponent(lastLoad.inputs.image)}&type=input&t=${Date.now()}`;
+    return lastNode ? { id: lastId, node: lastNode } : null;
+}
+
+function getInputImageSrc() {
+    const f = findInputImageNode();
+    if (!f) return null;
+    return `/view?filename=${encodeURIComponent(f.node.inputs.image)}&type=input&t=${Date.now()}`;
 }
 
 function updateCompareSplit() {
@@ -1068,10 +1083,86 @@ function refreshCompareButton() {
     const hasResult = !!(els.result && els.result.getAttribute('src'));
     const ready = hasResult && !!getInputImageSrc();
     els.compareBtn.classList.toggle('hidden', !ready);
+    // The reference button shares the same visibility rules as Compare.
+    if (els.referenceBtn) els.referenceBtn.classList.toggle('hidden', !ready);
 }
 
 function hideCompareButton() {
     if (els.compareBtn) els.compareBtn.classList.add('hidden');
+    if (els.referenceBtn) els.referenceBtn.classList.add('hidden');
+}
+
+// --- USE AS REFERENCE: feed a generated image back in as the input image ---
+// Bridges the most recent output image into the Input folder (via /mini/bridge_image)
+// and points the workflow's LoadImage node at it, so the next run edits that result.
+// A blue highlight on the LoadImage card shows the generated image is in use.
+async function useAsReference() {
+    if (!lastResultImage) return;
+    const target = findInputImageNode();
+    if (!target) { alert('No LoadImage node found to use as reference.'); return; }
+
+    try {
+        const res = await fetch('/mini/bridge_image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                filename: lastResultImage.filename,
+                subfolder: lastResultImage.subfolder || '',
+                type: 'output'
+            })
+        });
+        if (!res.ok) throw new Error('Server error ' + res.status);
+        const data = await res.json();
+        const newFile = data.filename;
+        if (!newFile) throw new Error('Bridge returned no filename.');
+
+        target.node.inputs.image = newFile;
+        referenceNodeId = target.id;
+
+        // The file list is cached; drop the LoadImage cache so the new file shows up.
+        delete objectInfo['LoadImage'];
+        try { localStorage.removeItem('mini_oi_LoadImage'); } catch (_) {}
+
+        // Persist so the reference survives a reload (the image is already in Input).
+        try {
+            await fetch('/mini/save_workflow', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(loadedWorkflow)
+            });
+        } catch (e) { console.error('[Reference] Save failed:', e.message); }
+
+        renderControls(); // re-render to apply the blue highlight + fresh thumbnail
+        logTerminal(`Reference: using ${newFile} as the input image`, 'success');
+    } catch (e) {
+        logTerminal(`Use as reference failed: ${e.message}`, 'error');
+        alert('Failed to use image as reference: ' + e.message);
+    }
+}
+
+// Apply (or skip) the blue "generated image in use" styling for a LoadImage node.
+// Called from renderControls so the highlight survives any re-render.
+function applyReferenceStyle(card, nodeId) {
+    if (nodeId !== referenceNodeId) return;
+    card.classList.add('border-blue-500', 'ring-2', 'ring-blue-500/70');
+    const header = card.querySelector(':scope > div');
+    if (header) {
+        const badge = document.createElement('span');
+        badge.className = 'reference-badge ml-2 text-[8px] font-bold text-blue-300 bg-blue-500/15 border border-blue-500/40 rounded px-1.5 py-0.5 uppercase tracking-wider shrink-0';
+        badge.textContent = 'Reference';
+        header.appendChild(badge);
+    }
+}
+
+// True when a LoadImage node's image was set by the "use as reference" action.
+function isReferenceImage(nodeId, filename) {
+    return nodeId === referenceNodeId && !!filename;
+}
+
+// Drop the reference flag when the user replaces the image by hand (upload or
+// dropdown) — the blue highlight should only mean "generated image in use".
+function clearReferenceIf(nodeId) {
+    if (referenceNodeId === nodeId) referenceNodeId = null;
 }
 
 // --- UPDATED: Universal Dynamic Updater & Auto-Saver ---
@@ -1219,6 +1310,8 @@ async function handleMsg(msg) {
         if (msg.data.output.images) {
             const img = msg.data.output.images[0];
             logTerminal(`Image generated: ${img.filename}`, "success");
+            // Remember this result so "Use as reference" can bridge it back into Input.
+            lastResultImage = { filename: img.filename, subfolder: img.subfolder || '', type: img.type || 'output' };
             if(els.result) {
                 els.result.src = `/view?filename=${img.filename}&subfolder=${img.subfolder}&type=${img.type}&t=${Date.now()}`;
                 els.result.classList.remove('opacity-50');
@@ -1588,7 +1681,7 @@ async function renderControls() {
                     imgEl.alt = imageFilename;
                     imgEl.loading = 'lazy';
                     imgEl.decoding = 'async';
-                    imgEl.style.cssText = `width:48px;height:48px;object-fit:cover;border-radius:6px;border:1.5px solid #3f3f46;cursor:pointer;background:#09090b;display:block;flex-shrink:0;`;
+                    imgEl.style.cssText = `width:48px;height:48px;object-fit:cover;border-radius:6px;border:1.5px solid ${isReferenceImage(inputRef.nodeId, imageFilename) ? '#3b82f6' : '#3f3f46'};cursor:pointer;background:#09090b;display:block;flex-shrink:0;`;
 
                     imgEl.onerror = () => { showGroupImageNotFoundIndicator(inputRef.nodeId, inputRef.key); };
                     imgEl.onclick = (e) => { e.stopPropagation(); openModal(`/view?filename=${encodeURIComponent(imageFilename)}&type=input&t=${Date.now()}`); };
@@ -1618,6 +1711,7 @@ async function renderControls() {
 
                 selectEl3.onchange = async () => {
                     const selVal = selectEl3.value;
+                    clearReferenceIf(inputRef.nodeId); // manual pick replaces the reference image
                     const favorites = await getFavorites();
                     if (selVal && !options3.includes(selVal) && favorites.includes(selVal)) {
                         try {
@@ -1866,7 +1960,7 @@ async function renderControls() {
                         imgEl2.alt = val;
                         imgEl2.loading = 'lazy';
                         imgEl2.decoding = 'async';
-                        imgEl2.style.cssText = `width:48px;height:48px;object-fit:cover;border-radius:6px;border:1.5px solid #3f3f46;cursor:pointer;background:#09090b;display:block;flex-shrink:0;`;
+                        imgEl2.style.cssText = `width:48px;height:48px;object-fit:cover;border-radius:6px;border:1.5px solid ${isReferenceImage(item.id, val) ? '#3b82f6' : '#3f3f46'};cursor:pointer;background:#09090b;display:block;flex-shrink:0;`;
 
                         imgEl2.onerror = () => { showImageNotFoundIndicator(item.id, val); };
                         imgEl2.onclick = (e) => { e.stopPropagation(); openModal(`/view?filename=${encodeURIComponent(val)}&type=input&t=${Date.now()}`); };
@@ -1893,6 +1987,7 @@ async function renderControls() {
 
                     selectStandalone.onchange = async () => {
                         const selVal = selectStandalone.value;
+                        clearReferenceIf(item.id); // manual pick replaces the reference image
                         const favorites = await getFavorites();
                         if (selVal && !options4.includes(selVal) && favorites.includes(selVal)) {
                             try {
@@ -1948,6 +2043,8 @@ async function renderControls() {
                 makeCardResizable(card, handle);
                 card.appendChild(handle);
             }
+            // Blue "reference in use" highlight (no-op unless this node is the reference).
+            applyReferenceStyle(card, item.id);
             els.controls.appendChild(card);
         }
     }
