@@ -27,6 +27,7 @@ const els = {
     compareOld: document.getElementById('compare-old'),
     compareSlider: document.getElementById('compare-slider'),
     compareDivider: document.getElementById('compare-divider'),
+    compareHandle: document.getElementById('compare-handle'),
     compareClose: document.getElementById('compare-close')
 };
 
@@ -883,6 +884,28 @@ function setupCompareOverlay() {
     if (els.compareBtn) els.compareBtn.onclick = openCompare;
     if (els.compareSlider) els.compareSlider.addEventListener('input', updateCompareSplit);
     if (els.compareClose) els.compareClose.onclick = closeCompare;
+
+    // Centre circle drag — Pointer Events cover touch and mouse alike.
+    // touch-action:none (set in HTML) stops the page scrolling while we drag.
+    if (els.compareHandle) {
+        const handle = els.compareHandle;
+        handle.addEventListener('pointerdown', (e) => {
+            compareDragging = true;
+            try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+            splitFromClientX(e.clientX);
+        });
+        handle.addEventListener('pointermove', (e) => {
+            if (!compareDragging) return;
+            splitFromClientX(e.clientX);
+        });
+        const endDrag = (e) => {
+            if (!compareDragging) return;
+            compareDragging = false;
+            try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+        };
+        handle.addEventListener('pointerup', endDrag);
+        handle.addEventListener('pointercancel', endDrag);
+    }
     if (els.compareModal) els.compareModal.addEventListener('click', (e) => {
         if (e.target === els.compareModal) closeCompare();
     });
@@ -890,57 +913,7 @@ function setupCompareOverlay() {
         if (e.key === 'Escape' && els.compareModal && !els.compareModal.classList.contains('hidden')) closeCompare();
     });
 
-    setupCompareDrag();
     refreshCompareButton();
-}
-
-// Touch/mouse drag on the center split handle. Press the circle (or anywhere on the
-// full-height strip) and slide to move the split. Uses Pointer Events so one code path
-// covers touch and mouse; touch-action:none (on the element) stops the page from
-// scrolling or pinch-zooming mid-drag. The split is written back to the bottom slider so
-// the two controls stay in sync.
-function setupCompareDrag() {
-    if (!els.compareDivider || !els.compareSlider) return;
-    const divider = els.compareDivider;
-    const container = divider.parentElement; // the image area that the % is relative to
-
-    const valueFromX = (clientX) => {
-        const rect = container.getBoundingClientRect();
-        if (!rect || !rect.width) return null;
-        let x = (clientX - rect.left) / rect.width;
-        x = Math.max(0, Math.min(1, x));
-        return Math.round((1 - x) * 100); // x=0 (left) -> all new (0), x=1 (right) -> all old (100)
-    };
-
-    const apply = (clientX) => {
-        const v = valueFromX(clientX);
-        if (v == null) return;
-        els.compareSlider.value = v;
-        updateCompareSplit();
-    };
-
-    let dragging = false;
-    divider.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
-        dragging = true;
-        // Keep receiving moves even if the finger leaves the strip. A real touch has an
-        // active pointer so this succeeds; wrap it so a tap still jumps if capture is
-        // unavailable (some browsers, synthetic events).
-        try { if (divider.setPointerCapture) divider.setPointerCapture(e.pointerId); } catch (_) {}
-        apply(e.clientX); // a tap jumps the split to the pressed x
-    });
-    divider.addEventListener('pointermove', (e) => {
-        if (!dragging) return; // ignore mouse hover; only track an active press
-        apply(e.clientX);
-    });
-    const endDrag = (e) => {
-        dragging = false;
-        if (divider.releasePointerCapture) {
-            try { divider.releasePointerCapture(e.pointerId); } catch (_) {}
-        }
-    };
-    divider.addEventListener('pointerup', endDrag);
-    divider.addEventListener('pointercancel', endDrag);
 }
 
 // --- WEBSOCKET & HANDLERS ---
@@ -1006,6 +979,23 @@ function updateCompareSplit() {
     if (els.compareNew) els.compareNew.style.clipPath = `inset(0 ${v}% 0 0)`;
     if (els.compareDivider) els.compareDivider.style.left = `${100 - v}%`;
     if (els.compareSlider) els.compareSlider.style.background = `linear-gradient(to left, #3b82f6 ${v}%, #27272a ${v}%)`;
+}
+
+// --- Drag the centre circle to move the split (touch + mouse via Pointer Events) ---
+// The divider's left% is the pointer's x within the image area; the slider value
+// (how much OLD is revealed from the right) is 100 - that, so we just rewrite the
+// slider value and let updateCompareSplit() apply clip-path / divider / track.
+let compareDragging = false;
+function splitFromClientX(clientX) {
+    if (!els.compareSlider || !els.compareNew) return;
+    const container = els.compareNew.parentElement; // the relative flex-1 image area
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    if (!rect.width) return;
+    let xPct = ((clientX - rect.left) / rect.width) * 100;
+    xPct = Math.max(0, Math.min(100, xPct));
+    els.compareSlider.value = Math.round(100 - xPct);
+    updateCompareSplit();
 }
 
 function openCompare() {
