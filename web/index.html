@@ -91,7 +91,12 @@
         <div class="relative flex-1 overflow-hidden select-none">
             <img id="compare-old" class="absolute inset-0 w-full h-full object-contain" src="" alt="Input image">
             <img id="compare-new" class="absolute inset-0 w-full h-full object-contain" src="" alt="New image" style="clip-path: inset(0 50% 0 0)">
-            <div id="compare-divider" class="absolute top-0 bottom-0 w-[2px] bg-blue-500 z-10 pointer-events-none" style="left: 50%">
+            <!-- Draggable split handle: a full-height, 40px-wide touch strip (w-10) centered on the
+                 split line. Press the circle — or anywhere on the strip — and slide to move the split.
+                 touch-none keeps the page from scrolling/zooming mid-drag; -translate-x-1/2 keeps the
+                 visible line centered on the `left` position that updateCompareSplit() sets. -->
+            <div id="compare-divider" class="absolute top-0 bottom-0 w-10 -translate-x-1/2 z-10 touch-none cursor-ew-resize select-none" style="left: 50%">
+                <div class="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-[2px] bg-blue-500"></div>
                 <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white border-2 border-blue-500 shadow-lg flex items-center justify-center">
                     <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4M8 15l4 4 4-4"></path></svg>
                 </div>

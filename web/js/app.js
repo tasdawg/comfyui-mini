@@ -890,7 +890,54 @@ function setupCompareOverlay() {
         if (e.key === 'Escape' && els.compareModal && !els.compareModal.classList.contains('hidden')) closeCompare();
     });
 
+    setupCompareDrag();
     refreshCompareButton();
+}
+
+// Touch/mouse drag on the center split handle. Press the circle (or anywhere on the
+// full-height strip) and slide to move the split. Uses Pointer Events so one code path
+// covers touch and mouse; touch-action:none (on the element) stops the page from
+// scrolling or pinch-zooming mid-drag. The split is written back to the bottom slider so
+// the two controls stay in sync.
+function setupCompareDrag() {
+    if (!els.compareDivider || !els.compareSlider) return;
+    const divider = els.compareDivider;
+    const container = divider.parentElement; // the image area that the % is relative to
+
+    const valueFromX = (clientX) => {
+        const rect = container.getBoundingClientRect();
+        if (!rect || !rect.width) return null;
+        let x = (clientX - rect.left) / rect.width;
+        x = Math.max(0, Math.min(1, x));
+        return Math.round((1 - x) * 100); // x=0 (left) -> all new (0), x=1 (right) -> all old (100)
+    };
+
+    const apply = (clientX) => {
+        const v = valueFromX(clientX);
+        if (v == null) return;
+        els.compareSlider.value = v;
+        updateCompareSplit();
+    };
+
+    let dragging = false;
+    divider.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        dragging = true;
+        if (divider.setPointerCapture) divider.setPointerCapture(e.pointerId);
+        apply(e.clientX); // a tap jumps the split to the pressed x
+    });
+    divider.addEventListener('pointermove', (e) => {
+        if (!dragging) return; // ignore mouse hover; only track an active press
+        apply(e.clientX);
+    });
+    const endDrag = (e) => {
+        dragging = false;
+        if (divider.releasePointerCapture) {
+            try { divider.releasePointerCapture(e.pointerId); } catch (_) {}
+        }
+    };
+    divider.addEventListener('pointerup', endDrag);
+    divider.addEventListener('pointercancel', endDrag);
 }
 
 // --- WEBSOCKET & HANDLERS ---
