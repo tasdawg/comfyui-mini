@@ -1334,21 +1334,29 @@ export function createInputDOM(node, key, val, def, isGroupNode = false, groupIn
         // Edit Mode Resize Handle
         if (isEditMode) {
              const resizeHandle = document.createElement('div');
-             resizeHandle.className = "absolute bottom-0 right-0 w-3 h-3 bg-zinc-600/50 cursor-se-resize rounded-tl hover:bg-blue-500 z-10";
-             let startY = 0; let startH = 0; let startCardH = 0; let card = null;
-             const onMove = (e) => {
-                const dy = e.clientY - startY;
+             resizeHandle.className = "absolute bottom-0 right-0 w-3 h-3 bg-zinc-600/50 cursor-se-resize rounded-tl hover:bg-blue-500 z-10 touch-none select-none";
+             let startY = 0; let startH = 0; let startCardH = 0; let card = null; let resizing = false;
+             const applyDrag = (clientY) => {
+                const dy = clientY - startY;
                 const newH = Math.max(40, startH + dy);
                 input.style.height = `${newH}px`;
                 if(isGroupNode && groupInputRef) { groupInputRef.height = newH; } 
                 else if (!isGroupNode && card) { const newCardH = Math.max(100, startCardH + dy); card.style.height = `${newCardH}px`; }
             };
-            const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
-            resizeHandle.onmousedown = (e) => {
-                e.stopPropagation(); startY = e.clientY; startH = input.offsetHeight;
+            resizeHandle.addEventListener('pointerdown', (e) => {
+                e.stopPropagation();
+                resizing = true; startY = e.clientY; startH = input.offsetHeight;
                 if (!isGroupNode) { card = container.closest('.compact-card'); if (card) startCardH = card.offsetHeight; }
-                window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
-            };
+                try { resizeHandle.setPointerCapture(e.pointerId); } catch (_) {}
+             });
+             resizeHandle.addEventListener('pointermove', (e) => { if (resizing) applyDrag(e.clientY); });
+             const endResize = (e) => {
+                if (!resizing) return;
+                resizing = false;
+                try { resizeHandle.releasePointerCapture(e.pointerId); } catch (_) {}
+             };
+             resizeHandle.addEventListener('pointerup', endResize);
+             resizeHandle.addEventListener('pointercancel', endResize);
             container.appendChild(resizeHandle);
         }
         
@@ -1995,6 +2003,7 @@ function toggleEditMode() {
 function makeCardResizable(card, handle) {
     let startY = 0;
     let startHeight = 0;
+    let dragging = false;
     const onDragStart = (y) => {
         startY = y;
         startHeight = card.offsetHeight;
@@ -2006,35 +2015,26 @@ function makeCardResizable(card, handle) {
         card.style.height = `${newHeight}px`;
     };
     const onDragEnd = () => {
+        dragging = false;
         document.body.style.userSelect = '';
         document.body.style.cursor = '';
-        removeListeners();
     };
-    const onMouseMove = (e) => onDragMove(e.clientY);
-    const onMouseUp = () => onDragEnd();
-    handle.addEventListener('mousedown', (e) => {
+    // Pointer Events: one code path for touch and mouse (same as the compare split).
+    // touch-action:none is already on the handle, so the page won't scroll mid-drag.
+    handle.addEventListener('pointerdown', (e) => {
+        if (!e.isPrimary) return; // ignore a second finger on the bar
+        dragging = true;
         onDragStart(e.clientY);
-        window.addEventListener('mousemove', onMouseMove);
-        window.addEventListener('mouseup', onMouseUp);
+        try { handle.setPointerCapture(e.pointerId); } catch (_) {}
     });
-    const onTouchMove = (e) => onDragMove(e.touches[0].clientY);
-    const onTouchEnd = () => {
-        window.removeEventListener('touchmove', onTouchMove);
-        window.removeEventListener('touchend', onTouchEnd);
+    handle.addEventListener('pointermove', (e) => { if (dragging) onDragMove(e.clientY); });
+    const endDrag = (e) => {
+        if (!dragging) return;
         onDragEnd();
+        try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
     };
-    handle.addEventListener('touchstart', (e) => {
-        if (e.touches.length > 1) return;
-        onDragStart(e.touches[0].clientY);
-        window.addEventListener('touchmove', onTouchMove, { passive: false });
-        window.addEventListener('touchend', onTouchEnd);
-    }, { passive: true });
-    function removeListeners() {
-        window.removeEventListener('mousemove', onMouseMove);
-        window.removeEventListener('mouseup', onMouseUp);
-        window.removeEventListener('touchmove', onTouchMove);
-        window.removeEventListener('touchend', onTouchEnd);
-    }
+    handle.addEventListener('pointerup', endDrag);
+    handle.addEventListener('pointercancel', endDrag);
 }
 
 // Replace your existing run() function
